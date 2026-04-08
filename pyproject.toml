@@ -1,0 +1,137 @@
+[project]
+name = "market-structure"
+version = "0.1.0"
+description = "Python library for market structure analysis — swings, trends, support/resistance zones, break/retest/flip signals. Works with freqtrade."
+readme = "README.md"
+authors = [
+    { name = "Fortunato Geelhoed", email = "f.geelhoed@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = []
+
+[build-system]
+requires = ["uv_build>=0.10.10,<0.11.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.5.1",
+    "pyright>=1.1.408",
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.9",
+    "rust-just>=1.48.1",
+]
+
+# ---------------------------------------------------------------------------
+# Ruff — linter + formatter (replaces black, isort, flake8, pylint, pyupgrade)
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+extend-exclude = [".venv", "build", "dist"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes (unused imports, undefined names)
+    "I",    # isort (import sorting)
+    "N",    # pep8-naming
+    "UP",   # pyupgrade (auto-modernize syntax for target Python)
+    "B",    # flake8-bugbear (likely bugs: mutable defaults, etc.)
+    "C4",   # flake8-comprehensions (cleaner list/dict/set comprehensions)
+    "SIM",  # flake8-simplify (code simplification)
+    "RET",  # flake8-return (return statement smells)
+    "PTH",  # flake8-use-pathlib (prefer pathlib over os.path)
+    "TID",  # flake8-tidy-imports (ban relative imports, etc.)
+    "TC",   # flake8-type-checking (move type-only imports under TYPE_CHECKING)
+    "PD",   # pandas-vet (pandas anti-patterns — critical for this project)
+    "NPY",  # numpy-specific rules
+    "PERF", # perflint (perf anti-patterns)
+    "RUF",  # ruff-specific rules
+]
+ignore = [
+    "E501",   # line-too-long: the formatter already handles this
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "PLR2004", # allow magic numbers in tests
+    "S101",    # allow `assert` in tests
+]
+"**/__init__.py" = [
+    "F401",    # allow unused imports in __init__.py (re-exports)
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["market_structure"]
+
+[tool.ruff.format]
+docstring-code-format = true  # also format code blocks inside docstrings
+
+# ---------------------------------------------------------------------------
+# Pyright — static type checker (≈ `tsc --strict` for Python)
+# ---------------------------------------------------------------------------
+[tool.pyright]
+include = ["src", "tests"]
+exclude = ["**/__pycache__", ".venv", "build", "dist"]
+pythonVersion = "3.12"
+pythonPlatform = "Linux"
+venvPath = "."
+venv = ".venv"
+
+typeCheckingMode = "strict"
+
+# Rule overrides — strict mode is aggressive; these are the pragmatic relaxations.
+reportMissingTypeStubs = "warning"        # many libs (incl. pandas parts) lack full stubs
+reportUnknownMemberType = "warning"       # pandas/numpy return types are often dynamic
+reportUnknownArgumentType = "warning"     # same reason
+reportUnknownVariableType = "warning"     # same reason
+reportUnknownParameterType = "error"      # but YOUR code must be fully typed
+reportMissingParameterType = "error"      # no untyped params in first-party code
+reportUntypedFunctionDecorator = "warning"
+reportPrivateUsage = "warning"
+
+# ---------------------------------------------------------------------------
+# Pytest — test runner (≈ vitest/jest for Python)
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = [
+    "-ra",                         # short summary for all non-passing tests
+    "--strict-markers",            # error on unknown @pytest.mark.* (catches typos)
+    "--strict-config",             # error on unknown config keys
+    "--import-mode=importlib",     # modern import mode, works cleanly with src/ layout
+    "--cov=market_structure",      # measure coverage of our package
+    "--cov-branch",                # also measure branch coverage
+    "--cov-report=term-missing",   # show uncovered line numbers in terminal
+    "--cov-fail-under=0",          # start at 0%, raise as the project matures
+]
+xfail_strict = true                # @pytest.mark.xfail that unexpectedly passes = failure
+filterwarnings = [
+    "error",                       # treat warnings as errors (catches deprecations early)
+]
+
+# ---------------------------------------------------------------------------
+# Coverage.py — pytest-cov uses this under the hood
+# ---------------------------------------------------------------------------
+[tool.coverage.run]
+source = ["src"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+    "if __name__ == .__main__.:",
+]
+show_missing = true
+skip_covered = false

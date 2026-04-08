@@ -1,0 +1,57 @@
+# EditorConfig — keeps editor behavior consistent across tools.
+# https://editorconfig.org
+
+root = true
+
+# ─── Defaults for every file ───────────────────────────────────────────────
+[*]
+charset                  = utf-8
+end_of_line              = lf
+insert_final_newline     = true
+trim_trailing_whitespace = true
+indent_style             = space
+indent_size              = 4
+
+# ─── Python ────────────────────────────────────────────────────────────────
+# PEP 8: 4 spaces. Line length matches our ruff config.
+[*.{py,pyi}]
+indent_size     = 4
+max_line_length = 100
+
+# ─── YAML ──────────────────────────────────────────────────────────────────
+# YAML convention is 2 spaces (mandatory for some parsers).
+[*.{yml,yaml}]
+indent_size = 2
+
+# ─── JSON ──────────────────────────────────────────────────────────────────
+[*.json]
+indent_size = 2
+
+# ─── TOML ──────────────────────────────────────────────────────────────────
+# pyproject.toml is hand-edited often; 4 spaces matches Python convention.
+[*.toml]
+indent_size = 4
+
+# ─── Markdown ──────────────────────────────────────────────────────────────
+# Markdown uses two trailing spaces for hard line breaks — don't trim.
+[*.md]
+indent_size              = 2
+trim_trailing_whitespace = false
+
+# ─── Shell ─────────────────────────────────────────────────────────────────
+[*.sh]
+indent_size = 2
+
+# ─── XML (PyCharm .idea files) ─────────────────────────────────────────────
+[*.xml]
+indent_size = 2
+
+# ─── Justfile ──────────────────────────────────────────────────────────────
+# `just` recipes use whatever indent the file uses; 4 spaces is conventional.
+[Justfile]
+indent_size = 4
+
+# ─── Makefile (in case you ever add one) ───────────────────────────────────
+# Make REQUIRES tabs in recipe lines — non-negotiable.
+[{Makefile,*.mk}]
+indent_style = tab
