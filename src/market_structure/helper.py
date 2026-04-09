@@ -253,6 +253,9 @@ class MarketStructureHelper:
         hco_pos, hco_c = max(enumerate(candles), key=lambda ic: max(ic[1].close, ic[1].open))
         lco_pos, lco_c = min(enumerate(candles), key=lambda ic: min(ic[1].close, ic[1].open))
 
+        high_since = self._determine_high_since(hco_c, hco_pos) if side == "up" else 0
+        low_since = self._determine_low_since(lco_c, lco_pos) if side == "down" else 0
+
         return Wave(
             id=wave_id,
             side=side,
@@ -267,8 +270,71 @@ class MarketStructureHelper:
             low_idx=base + low_pos,
             highest_close_or_open_idx=base + hco_pos,
             lowest_close_or_open_idx=base + lco_pos,
+            high_since=high_since,
+            low_since=low_since,
             candles=tuple(candles),
         )
+
+    # ------------------------------------------------------------------
+    # Backward scans
+    # ------------------------------------------------------------------
+
+    def _determine_high_since(self, hco_candle: Candle, hco_pos: int) -> int:
+        """Count bars backward from the HCO extreme to the last time price exceeded it.
+
+        Starting from ``hco_pos`` (the position of the highest-close-or-open
+        candle within the forming wave's buffer), walks backward through
+        ``_wave_registry`` newest-to-oldest. For each prior wave, compares
+        its ``highest_close_or_open`` level against the forming wave's.
+
+        Returns the total candle distance — used by ``pick_long_term_top``
+        (Stage 11) to identify significant swing highs. Only meaningful
+        for ``"up"`` waves.
+        """
+        forming_top = max(hco_candle.close, hco_candle.open)
+        candle_count = hco_pos
+
+        for wave in reversed(self._wave_registry):
+            older_top = max(
+                wave.highest_close_or_open.close,
+                wave.highest_close_or_open.open,
+            )
+            if older_top > forming_top:
+                local_idx = next(
+                    i for i, c in enumerate(wave.candles) if c is wave.highest_close_or_open
+                )
+                return candle_count + len(wave.candles) - 1 - local_idx
+            candle_count += len(wave.candles)
+
+        return candle_count
+
+    def _determine_low_since(self, lco_candle: Candle, lco_pos: int) -> int:
+        """Count bars backward from the LCO extreme to the last time price went lower.
+
+        Mirror of ``_determine_high_since`` for down-waves: walks backward
+        looking for a prior wave whose ``lowest_close_or_open`` is *below*
+        the forming wave's level.
+        """
+        forming_bottom = min(lco_candle.close, lco_candle.open)
+        candle_count = lco_pos
+
+        for wave in reversed(self._wave_registry):
+            older_bottom = min(
+                wave.lowest_close_or_open.close,
+                wave.lowest_close_or_open.open,
+            )
+            if older_bottom < forming_bottom:
+                local_idx = next(
+                    i for i, c in enumerate(wave.candles) if c is wave.lowest_close_or_open
+                )
+                return candle_count + len(wave.candles) - 1 - local_idx
+            candle_count += len(wave.candles)
+
+        return candle_count
+
+    # ------------------------------------------------------------------
+    # Wave registry management
+    # ------------------------------------------------------------------
 
     def _push_wave(self, wave: Wave) -> None:
         """Append ``wave`` to the registry and the appropriate directional array.

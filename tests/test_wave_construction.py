@@ -334,12 +334,14 @@ class TestMultipleWaves:
             )
         assert h.wave_registry == ()
 
-    def test_high_since_and_low_since_default_to_zero(self) -> None:
-        """Backward scans are Stage 6 — until then, defaults are zero."""
+    def test_high_since_computed_for_up_wave(self) -> None:
+        """high_since reflects the backward distance from the HCO candle."""
         h = MarketStructureHelper()
         _trigger_one_up_wave(h)
-        assert h.wave_registry[0].high_since == 0
-        assert h.wave_registry[0].low_since == 0
+        # HCO (t=2000, max(close,open)=108) is at position 1 in the wave.
+        # No prior waves → high_since = 1.
+        assert h.wave_registry[0].high_since == 1
+        assert h.wave_registry[0].low_since == 0  # not computed for up waves
 
     def test_pullback_defaults_to_none(self) -> None:
         """Pullback computation is Stage 7 — until then, None."""
