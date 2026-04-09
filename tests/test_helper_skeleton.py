@@ -1,22 +1,12 @@
-"""Stage 2 tests for MarketStructureHelper — empty state, constructor, stub ingest."""
+"""Tests for MarketStructureHelper's empty state, constructor, and instance isolation.
+
+Scope: constructor wiring and the guarantees a freshly constructed helper
+makes to its callers. Ingest behavior lives in ``test_register_candle.py``.
+"""
 
 import pytest
 
 from market_structure import MarketStructureHelper
-from market_structure.types import Candle
-
-
-@pytest.fixture
-def candle() -> Candle:
-    """A minimal valid Candle, injected into tests that need an ingest target."""
-    return Candle(
-        open_time=1_000,
-        open=100.0,
-        high=101.0,
-        low=99.0,
-        close=100.5,
-        volume=1.0,
-    )
 
 
 class TestEmptyHelper:
@@ -89,10 +79,3 @@ class TestInstanceIsolation:
 
         assert len(h1.wave_registry) == 1
         assert len(h2.wave_registry) == 0
-
-
-class TestRegisterCandleStub:
-    def test_raises_not_implemented(self, candle: Candle) -> None:
-        h = MarketStructureHelper()
-        with pytest.raises(NotImplementedError, match="stages 3"):
-            h.register_candle(candle, histogram_value=0.5)
