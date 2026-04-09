@@ -9,7 +9,7 @@ See ``docs/porting-market-structure-helper.md`` for the architectural
 rationale (option (c) hybrid).
 """
 
-from market_structure.types import Candle, Wave
+from market_structure.types import Candle, Direction, Wave
 
 
 class MarketStructureHelper:
@@ -62,6 +62,10 @@ class MarketStructureHelper:
         self._last_registered_open_time: int | None = None
         self._previous_histogram_value: float | None = None
         self._total_candles_registered: int = 0
+
+        # Wave construction bookkeeping.
+        self._next_wave_id: int = 0
+        self._wave_start_index: int = 0
 
     # ------------------------------------------------------------------
     # Read-only state accessors
@@ -140,9 +144,11 @@ class MarketStructureHelper:
         # histogram value, but ``if prev`` would treat it as "unseen".
         prev = self._previous_histogram_value
         if prev is not None and self._sign_flipped(prev, histogram_value):
-            # Prior wave is done. Drop its candles — Stage 4 will instead
-            # finalize them into a Wave at this point.
+            side: Direction = "up" if prev >= 0 else "down"
+            wave = self._construct_wave(side)
+            self._push_wave(wave)
             self._wave_candles.clear()
+            self._wave_start_index = self._total_candles_registered - 1
 
         self._wave_candles.append(candle)
         self._previous_histogram_value = histogram_value
@@ -159,3 +165,84 @@ class MarketStructureHelper:
         of ``0.0`` followed by any negative value registers as a flip.
         """
         return (prev >= 0) != (curr >= 0)
+
+    # ------------------------------------------------------------------
+    # Wave construction
+    # ------------------------------------------------------------------
+
+    def _construct_wave(self, side: Direction) -> Wave:
+        """Build a ``Wave`` from the current ``_wave_candles`` buffer.
+
+        Finds the six extremum candles via ``max`` / ``min`` with a
+        ``key=`` function — the Pythonic replacement for the TS
+        ``.reduce()`` pattern. No explicit seed needed: the buffer is
+        guaranteed non-empty when we reach a sign-flip.
+
+        For the four extremes that carry a stored index (``high_idx``,
+        ``low_idx``, ``highest_close_or_open_idx``,
+        ``lowest_close_or_open_idx``), we use ``enumerate`` to track
+        the buffer position and translate to a global candle index via
+        ``_wave_start_index + offset``.
+        """
+        candles = self._wave_candles
+        base = self._wave_start_index
+
+        high_pos, high_c = max(enumerate(candles), key=lambda ic: ic[1].high)
+        low_pos, low_c = min(enumerate(candles), key=lambda ic: ic[1].low)
+        highest_close_c = max(candles, key=lambda c: c.close)
+        lowest_close_c = min(candles, key=lambda c: c.close)
+        hco_pos, hco_c = max(enumerate(candles), key=lambda ic: max(ic[1].close, ic[1].open))
+        lco_pos, lco_c = min(enumerate(candles), key=lambda ic: min(ic[1].close, ic[1].open))
+
+        wave_id = f"w-{self._next_wave_id}"
+        self._next_wave_id += 1
+
+        return Wave(
+            id=wave_id,
+            side=side,
+            formation_bar_index=self._total_candles_registered - 1,
+            high=high_c,
+            low=low_c,
+            highest_close=highest_close_c,
+            lowest_close=lowest_close_c,
+            highest_close_or_open=hco_c,
+            lowest_close_or_open=lco_c,
+            high_idx=base + high_pos,
+            low_idx=base + low_pos,
+            highest_close_or_open_idx=base + hco_pos,
+            lowest_close_or_open_idx=base + lco_pos,
+            candles=tuple(candles),
+        )
+
+    def _push_wave(self, wave: Wave) -> None:
+        """Append ``wave`` to the registry and the appropriate directional array.
+
+        Shared by the incremental path (``register_candle``) and the bulk
+        ``hydrate`` path (Stage 8). After pushing, evict oldest waves if
+        the registry exceeds ``max_waves``.
+        """
+        self._wave_registry.append(wave)
+        if wave.side == "up":
+            self._top_waves.append(wave)
+        else:
+            self._bottom_waves.append(wave)
+        self._evict_old_waves()
+
+    def _evict_old_waves(self) -> None:
+        """Remove the oldest waves when the registry exceeds ``max_waves``.
+
+        FIFO eviction via ``list.pop(0)`` — O(n) per eviction but
+        ``max_waves`` is typically 200, so the constant is negligible.
+        ``collections.deque`` would give O(1) popleft but complicates
+        indexed access elsewhere; not worth it until profiling says so.
+
+        Evicted waves are also removed from the head of the matching
+        directional array (``_top_waves`` or ``_bottom_waves``) to keep
+        all three lists consistent.
+        """
+        while len(self._wave_registry) > self.max_waves:
+            evicted = self._wave_registry.pop(0)
+            if evicted.side == "up" and self._top_waves and self._top_waves[0] is evicted:
+                self._top_waves.pop(0)
+            elif evicted.side == "down" and self._bottom_waves and self._bottom_waves[0] is evicted:
+                self._bottom_waves.pop(0)

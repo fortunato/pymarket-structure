@@ -152,22 +152,13 @@ class TestSignFlip:
 
 
 class TestGetCurrentWaveStillNone:
-    """Stage 3 does not build ``Wave`` objects yet, even as the buffer fills."""
+    """``get_current_wave`` is not yet wired — returns ``None`` until Stage 5."""
 
     def test_get_current_wave_returns_none_after_many_candles(self) -> None:
         h = MarketStructureHelper()
         for i in range(5):
             h.register_candle(_candle(open_time=1_000 * (i + 1)), histogram_value=0.3)
         assert h.get_current_wave() is None
-
-    def test_wave_registry_stays_empty_across_flips(self) -> None:
-        h = MarketStructureHelper()
-        h.register_candle(_candle(open_time=1_000), histogram_value=0.5)
-        h.register_candle(_candle(open_time=2_000), histogram_value=-0.2)  # flip
-        h.register_candle(_candle(open_time=3_000), histogram_value=0.4)  # flip
-
-        # No Wave construction yet — that's Stage 4.
-        assert h.wave_registry == ()
 
 
 @pytest.mark.parametrize(
