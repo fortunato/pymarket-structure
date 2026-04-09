@@ -151,16 +151,6 @@ class TestSignFlip:
         assert h.total_candles_registered == 7
 
 
-class TestGetCurrentWaveStillNone:
-    """``get_current_wave`` is not yet wired — returns ``None`` until Stage 5."""
-
-    def test_get_current_wave_returns_none_after_many_candles(self) -> None:
-        h = MarketStructureHelper()
-        for i in range(5):
-            h.register_candle(_candle(open_time=1_000 * (i + 1)), histogram_value=0.3)
-        assert h.get_current_wave() is None
-
-
 @pytest.mark.parametrize(
     ("prev", "curr", "expected"),
     [

@@ -85,22 +85,74 @@ class MarketStructureHelper:
         """
         return self._total_candles_registered
 
-    def get_last_top(self) -> Wave | None:
-        """Return the most recently confirmed up-wave, or ``None`` during warm-up."""
+    def get_last_top(self, *, include_forming_wave: bool = False) -> Wave | None:
+        """Return the most recently confirmed up-wave, or ``None`` during warm-up.
+
+        When ``include_forming_wave`` is True and the forming wave is an
+        up-wave, it is returned instead — matching the TS semantics where
+        ``getLastTop(true)`` treats the forming wave as "last".
+        """
+        if include_forming_wave:
+            current = self.get_current_wave()
+            if current is not None and current.side == "up":
+                return current
         return self._top_waves[-1] if self._top_waves else None
 
-    def get_last_bottom(self) -> Wave | None:
-        """Return the most recently confirmed down-wave, or ``None`` during warm-up."""
+    def get_last_bottom(self, *, include_forming_wave: bool = False) -> Wave | None:
+        """Return the most recently confirmed down-wave, or ``None`` during warm-up.
+
+        When ``include_forming_wave`` is True and the forming wave is a
+        down-wave, it is returned instead.
+        """
+        if include_forming_wave:
+            current = self.get_current_wave()
+            if current is not None and current.side == "down":
+                return current
         return self._bottom_waves[-1] if self._bottom_waves else None
+
+    def get_previous_top(self, *, include_forming_wave: bool = False) -> Wave | None:
+        """Return the second-to-last confirmed up-wave, or ``None``.
+
+        When ``include_forming_wave`` is True and the forming wave is an
+        up-wave, the forming wave is treated as "last" — so "previous"
+        returns the most recent *confirmed* up-wave (one slot back).
+        """
+        if include_forming_wave:
+            current = self.get_current_wave()
+            if current is not None and current.side == "up":
+                return self._top_waves[-1] if self._top_waves else None
+        return self._top_waves[-2] if len(self._top_waves) >= 2 else None
+
+    def get_previous_bottom(self, *, include_forming_wave: bool = False) -> Wave | None:
+        """Return the second-to-last confirmed down-wave, or ``None``.
+
+        When ``include_forming_wave`` is True and the forming wave is a
+        down-wave, the forming wave is treated as "last" — so "previous"
+        returns the most recent *confirmed* down-wave.
+        """
+        if include_forming_wave:
+            current = self.get_current_wave()
+            if current is not None and current.side == "down":
+                return self._bottom_waves[-1] if self._bottom_waves else None
+        return self._bottom_waves[-2] if len(self._bottom_waves) >= 2 else None
 
     def get_current_wave(self) -> Wave | None:
         """Return the in-flight wave currently being constructed, or ``None``.
 
-        Stages 2 and 3 always return ``None`` — even while ``_wave_candles``
-        accumulates, no ``Wave`` object exists yet. Stage 4 builds the
-        forming wave from the buffered candles of the current swing leg.
+        Builds a fresh ``Wave`` from ``_wave_candles`` on each call. The
+        forming wave uses a temporary ID (``"forming-N"``) that will become
+        ``"w-N"`` once a sign-flip confirms it. Calling this method never
+        increments the wave counter — the ID is reserved, not consumed.
+
+        Returns ``None`` only when no candles have been registered yet.
         """
-        return None
+        if not self._wave_candles:
+            return None
+        # Invariant: _previous_histogram_value is set whenever _wave_candles
+        # is non-empty — both are updated together at the end of register_candle.
+        assert self._previous_histogram_value is not None
+        side: Direction = "up" if self._previous_histogram_value >= 0 else "down"
+        return self._construct_wave(side, wave_id=f"forming-{self._next_wave_id}")
 
     # ------------------------------------------------------------------
     # Ingest API
@@ -145,7 +197,9 @@ class MarketStructureHelper:
         prev = self._previous_histogram_value
         if prev is not None and self._sign_flipped(prev, histogram_value):
             side: Direction = "up" if prev >= 0 else "down"
-            wave = self._construct_wave(side)
+            wave_id = f"w-{self._next_wave_id}"
+            self._next_wave_id += 1
+            wave = self._construct_wave(side, wave_id=wave_id)
             self._push_wave(wave)
             self._wave_candles.clear()
             self._wave_start_index = self._total_candles_registered - 1
@@ -170,7 +224,7 @@ class MarketStructureHelper:
     # Wave construction
     # ------------------------------------------------------------------
 
-    def _construct_wave(self, side: Direction) -> Wave:
+    def _construct_wave(self, side: Direction, *, wave_id: str) -> Wave:
         """Build a ``Wave`` from the current ``_wave_candles`` buffer.
 
         Finds the six extremum candles via ``max`` / ``min`` with a
@@ -183,6 +237,11 @@ class MarketStructureHelper:
         ``lowest_close_or_open_idx``), we use ``enumerate`` to track
         the buffer position and translate to a global candle index via
         ``_wave_start_index + offset``.
+
+        The ``wave_id`` is passed in by the caller — ``register_candle``
+        assigns ``"w-N"`` (permanent, counter-incrementing) while
+        ``get_current_wave`` assigns ``"forming-N"`` (temporary, no
+        counter side-effect).
         """
         candles = self._wave_candles
         base = self._wave_start_index
@@ -193,9 +252,6 @@ class MarketStructureHelper:
         lowest_close_c = min(candles, key=lambda c: c.close)
         hco_pos, hco_c = max(enumerate(candles), key=lambda ic: max(ic[1].close, ic[1].open))
         lco_pos, lco_c = min(enumerate(candles), key=lambda ic: min(ic[1].close, ic[1].open))
-
-        wave_id = f"w-{self._next_wave_id}"
-        self._next_wave_id += 1
 
         return Wave(
             id=wave_id,
