@@ -20,7 +20,7 @@ class Candle:
     ``tsi_hist`` value out at construction time, not off the Candle itself.
     """
 
-    open_time: int
+    open_time: int  # epoch ms — unique identifier, used for dedup
     open: float
     high: float
     low: float
@@ -32,11 +32,11 @@ class Candle:
 class Pullback:
     """Retracement metrics from the prior opposite-direction wave."""
 
-    length: int
-    breakout_level: float
-    price_diff: float
-    correction_factor: float | None
-    atr_factor: float | None
+    length: int  # bar count from prior wave's extreme to this wave's extreme
+    breakout_level: float  # close-or-open of the prior wave's extreme candle
+    price_diff: float  # signed: positive for up-waves, negative for down-waves
+    correction_factor: float | None  # fraction of prior run retraced (0..1+), None during warm-up
+    atr_factor: float | None  # retracement depth in ATR multiples, None if no ATR available
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,32 +48,41 @@ class Wave:
     to rescan the wave's candles to find them.
     """
 
-    id: str
-    side: Direction
-    formation_bar_index: int
-    high: Candle
-    low: Candle
-    highest_close: Candle
-    lowest_close: Candle
-    highest_close_or_open: Candle
-    lowest_close_or_open: Candle
+    id: str  # "w-0", "w-1", ... for confirmed; "forming-N" for in-flight
+    side: Direction  # "up" = histogram >= 0; "down" = histogram < 0
+    formation_bar_index: int  # bar index of the flip candle that confirmed this wave
+
+    # Extremum candles — the candle objects where each extreme occurred.
+    high: Candle  # candle with the highest high in this wave
+    low: Candle  # candle with the lowest low in this wave
+    highest_close: Candle  # candle with the highest close
+    lowest_close: Candle  # candle with the lowest close
+    highest_close_or_open: Candle  # HCO — candle with the highest max(close, open)
+    lowest_close_or_open: Candle  # LCO — candle with the lowest min(close, open)
+
+    # Row indices into the source DataFrame for each extremum above.
     high_idx: int
     low_idx: int
-    highest_close_or_open_idx: int
-    lowest_close_or_open_idx: int
-    high_since: int = 0
-    low_since: int = 0
-    pullback: Pullback | None = None
-    candles: tuple[Candle, ...] = field(default_factory=tuple)
+    highest_close_or_open_idx: int  # HCO index
+    lowest_close_or_open_idx: int  # LCO index
+
+    # Backward scan results — how far back (in bars) to a prior wave that
+    # exceeded this wave's HCO (for up-waves) or LCO (for down-waves).
+    # Used by pick_long_term_top/bottom to identify significant swings.
+    high_since: int = 0  # bars since a prior wave had a higher HCO (up-waves only)
+    low_since: int = 0  # bars since a prior wave had a lower LCO (down-waves only)
+
+    pullback: Pullback | None = None  # retracement from prior opposite wave; None during warm-up
+    candles: tuple[Candle, ...] = field(default_factory=tuple)  # all candles in this wave
 
 
 @dataclass(frozen=True, slots=True)
 class Zone:
     """Support or resistance zone anchored to a specific wave."""
 
-    range: tuple[float, float]
-    anchor_wave_id: str
-    overlapping_low_wave_ids: tuple[str, ...]
-    overlapping_high_wave_ids: tuple[str, ...]
-    is_double: bool
-    side: Direction
+    range: tuple[float, float]  # (low_price, high_price) — inclusive bounds
+    anchor_wave_id: str  # wave that defines the primary zone boundary
+    overlapping_low_wave_ids: tuple[str, ...]  # down-waves whose lows fall within this zone
+    overlapping_high_wave_ids: tuple[str, ...]  # up-waves whose highs fall within this zone
+    is_double: bool  # double bottom (support) or double top (resistance)
+    side: Direction  # "down" = support zone; "up" = resistance zone
