@@ -111,7 +111,8 @@ addopts = [
     "--cov=market_structure",      # measure coverage of our package
     "--cov-branch",                # also measure branch coverage
     "--cov-report=term-missing",   # show uncovered line numbers in terminal
-    "--cov-fail-under=0",          # start at 0%, raise as the project matures
+    "--cov-report=html",           # Produce HTML coverage report
+    "--cov-fail-under=0"           # start at 0%, raise as the project matures
 ]
 xfail_strict = true                # @pytest.mark.xfail that unexpectedly passes = failure
 filterwarnings = [
