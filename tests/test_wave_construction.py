@@ -343,8 +343,8 @@ class TestMultipleWaves:
         assert h.wave_registry[0].high_since == 1
         assert h.wave_registry[0].low_since == 0  # not computed for up waves
 
-    def test_pullback_defaults_to_none(self) -> None:
-        """Pullback computation is Stage 7 — until then, None."""
+    def test_pullback_none_for_first_wave(self) -> None:
+        """First wave has no prior opposite wave → pullback is None."""
         h = MarketStructureHelper()
         _trigger_one_up_wave(h)
         assert h.wave_registry[0].pullback is None

@@ -9,7 +9,7 @@ See ``docs/porting-market-structure-helper.md`` for the architectural
 rationale (option (c) hybrid).
 """
 
-from market_structure.types import Candle, Direction, Wave
+from market_structure.types import Candle, Direction, Pullback, Wave
 
 
 class MarketStructureHelper:
@@ -256,6 +256,11 @@ class MarketStructureHelper:
         high_since = self._determine_high_since(hco_c, hco_pos) if side == "up" else 0
         low_since = self._determine_low_since(lco_c, lco_pos) if side == "down" else 0
 
+        if side == "up":
+            pullback = self._determine_pullback_from_bottom(hco_c, hco_pos)
+        else:
+            pullback = self._determine_pullback_from_top(lco_c, lco_pos)
+
         return Wave(
             id=wave_id,
             side=side,
@@ -272,6 +277,7 @@ class MarketStructureHelper:
             lowest_close_or_open_idx=base + lco_pos,
             high_since=high_since,
             low_since=low_since,
+            pullback=pullback,
             candles=tuple(candles),
         )
 
@@ -331,6 +337,144 @@ class MarketStructureHelper:
             candle_count += len(wave.candles)
 
         return candle_count
+
+    # ------------------------------------------------------------------
+    # Pullback computation
+    # ------------------------------------------------------------------
+
+    def _determine_pullback_from_bottom(self, hco_candle: Candle, hco_pos: int) -> Pullback | None:
+        """Compute pullback metrics for an up-wave from the last confirmed bottom.
+
+        Measures how far price has risen from the bottom wave's
+        ``lowest_close_or_open`` to the forming wave's
+        ``highest_close_or_open``. The ``correction_factor`` expresses
+        this move as a fraction of the prior run (previous top → bottom).
+
+        Returns ``None`` during warm-up when no confirmed bottom exists.
+        """
+        bottom = self.get_last_bottom()
+        if bottom is None:
+            return None
+
+        # Distance from end of bottom wave to its LCO candle.
+        lco_local = next(
+            i for i, c in enumerate(bottom.candles) if c is bottom.lowest_close_or_open
+        )
+        bottom_candle_distance = len(bottom.candles) - 1 - lco_local
+
+        top_close_or_open = max(hco_candle.close, hco_candle.open)
+        bottom_close_or_open = min(
+            bottom.lowest_close_or_open.close,
+            bottom.lowest_close_or_open.open,
+        )
+
+        previous_top = self._get_top_before(bottom)
+        correction_factor: float | None = None
+        if previous_top is not None:
+            previous_top_high = max(
+                previous_top.highest_close_or_open.close,
+                previous_top.highest_close_or_open.open,
+            )
+            denominator = previous_top_high - bottom_close_or_open
+            if denominator != 0:
+                correction_factor = (top_close_or_open - bottom_close_or_open) / denominator
+
+        return Pullback(
+            length=hco_pos + bottom_candle_distance,
+            breakout_level=bottom_close_or_open,
+            price_diff=top_close_or_open - bottom_close_or_open,
+            correction_factor=correction_factor,
+            atr_factor=None,
+        )
+
+    def _determine_pullback_from_top(self, lco_candle: Candle, lco_pos: int) -> Pullback | None:
+        """Compute pullback metrics for a down-wave from the last confirmed top.
+
+        Mirror of ``_determine_pullback_from_bottom``: measures how far
+        price has fallen from the top wave's ``highest_close_or_open`` to
+        the forming wave's ``lowest_close_or_open``.
+        """
+        top = self.get_last_top()
+        if top is None:
+            return None
+
+        # Distance from end of top wave to its HCO candle.
+        hco_local = next(i for i, c in enumerate(top.candles) if c is top.highest_close_or_open)
+        top_candle_distance = len(top.candles) - 1 - hco_local
+
+        top_close_or_open = max(
+            top.highest_close_or_open.close,
+            top.highest_close_or_open.open,
+        )
+        bottom_close_or_open = min(lco_candle.close, lco_candle.open)
+
+        previous_bottom = self._get_bottom_before(top)
+        correction_factor: float | None = None
+        if previous_bottom is not None:
+            previous_bottom_low = min(
+                previous_bottom.lowest_close_or_open.close,
+                previous_bottom.lowest_close_or_open.open,
+            )
+            denominator = top_close_or_open - previous_bottom_low
+            if denominator != 0:
+                correction_factor = (top_close_or_open - bottom_close_or_open) / denominator
+
+        return Pullback(
+            length=lco_pos + top_candle_distance,
+            breakout_level=top_close_or_open,
+            price_diff=bottom_close_or_open - top_close_or_open,
+            correction_factor=correction_factor,
+            atr_factor=None,
+        )
+
+    # ------------------------------------------------------------------
+    # Wave registry lookups
+    # ------------------------------------------------------------------
+
+    def _get_wave_index(self, wave: Wave) -> int | None:
+        """Return the index of ``wave`` in the registry, or ``None``.
+
+        Uses identity (``is``) not equality — the wave objects in the
+        registry are the canonical instances, and callers always pass
+        references obtained from ``get_last_top()`` etc.
+        """
+        for i, w in enumerate(self._wave_registry):
+            if w is wave:
+                return i
+        return None
+
+    def _get_top_before(self, wave: Wave) -> Wave | None:
+        """Return the up-wave immediately preceding ``wave`` in the registry.
+
+        Waves alternate in the registry (up, down, up, …). If ``wave``
+        is a down-wave at index *i*, the top before it sits at *i - 1*.
+        If ``wave`` is itself an up-wave, the previous up-wave is two
+        slots back at *i - 2*.
+
+        Returns ``None`` when the computed index is out of bounds —
+        unlike JS, Python's negative indices wrap, so we guard explicitly.
+        """
+        idx = self._get_wave_index(wave)
+        if idx is None:
+            return None
+        top_idx = idx - 1 if wave.side == "down" else idx - 2
+        if top_idx < 0:
+            return None
+        return self._wave_registry[top_idx]
+
+    def _get_bottom_before(self, wave: Wave) -> Wave | None:
+        """Return the down-wave immediately preceding ``wave`` in the registry.
+
+        Mirror of ``_get_top_before``: if ``wave`` is an up-wave, the
+        bottom before it is one slot back; if down, two slots back.
+        """
+        idx = self._get_wave_index(wave)
+        if idx is None:
+            return None
+        bottom_idx = idx - 1 if wave.side == "up" else idx - 2
+        if bottom_idx < 0:
+            return None
+        return self._wave_registry[bottom_idx]
 
     # ------------------------------------------------------------------
     # Wave registry management
