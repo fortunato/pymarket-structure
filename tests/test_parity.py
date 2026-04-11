@@ -69,6 +69,7 @@ def _make_candle(row: dict[str, object]) -> Candle:
         low=float(row["low"]),  # type: ignore[arg-type]
         close=float(row["close"]),  # type: ignore[arg-type]
         volume=float(row["volume"]),  # type: ignore[arg-type]
+        histogram_value=float(row[HISTOGRAM_KEY]),  # type: ignore[arg-type]
     )
 
 
@@ -78,10 +79,7 @@ def _make_helper(from_str: str, to_str: str) -> MarketStructureHelper:
     rows = _filter_range(raw, from_str, to_str)
     h = MarketStructureHelper(histogram_key=HISTOGRAM_KEY)
     for row in rows:
-        h.register_candle(
-            _make_candle(row),
-            histogram_value=float(row[HISTOGRAM_KEY]),  # type: ignore[arg-type]
-        )
+        h.register_candle(_make_candle(row))
     return h
 
 
@@ -100,10 +98,7 @@ class TestCoreParity:
         # Incremental path
         h_inc = MarketStructureHelper(histogram_key=HISTOGRAM_KEY)
         for row in raw:
-            h_inc.register_candle(
-                _make_candle(row),
-                histogram_value=float(row[HISTOGRAM_KEY]),  # type: ignore[arg-type]
-            )
+            h_inc.register_candle(_make_candle(row))
 
         # Hydrate path
         h_hyd = hydrate(df, histogram_key=HISTOGRAM_KEY)
@@ -118,10 +113,7 @@ class TestCoreParity:
 
         h_inc = MarketStructureHelper(histogram_key=HISTOGRAM_KEY)
         for row in raw:
-            h_inc.register_candle(
-                _make_candle(row),
-                histogram_value=float(row[HISTOGRAM_KEY]),  # type: ignore[arg-type]
-            )
+            h_inc.register_candle(_make_candle(row))
 
         h_hyd = hydrate(df, histogram_key=HISTOGRAM_KEY)
 
@@ -139,10 +131,7 @@ class TestCoreParity:
 
         h_inc = MarketStructureHelper(histogram_key=HISTOGRAM_KEY)
         for row in rows:
-            h_inc.register_candle(
-                _make_candle(row),
-                histogram_value=float(row[HISTOGRAM_KEY]),  # type: ignore[arg-type]
-            )
+            h_inc.register_candle(_make_candle(row))
 
         h_hyd = hydrate(df, histogram_key=HISTOGRAM_KEY)
 

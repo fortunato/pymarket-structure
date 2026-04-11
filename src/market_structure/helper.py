@@ -2,7 +2,7 @@
 
 Two construction paths converge on the same instance state:
 
-- ``register_candle(candle, histogram_value=...)`` — incremental, used live
+- ``register_candle(candle)`` — incremental, used live
 - ``hydrate(df)`` — vectorized bulk path, used in backtest
 
 See ``docs/porting-market-structure-helper.md`` for the architectural
@@ -158,31 +158,17 @@ class MarketStructureHelper:
     # Ingest API
     # ------------------------------------------------------------------
 
-    def register_candle(
-        self,
-        candle: Candle,
-        *,
-        histogram_value: float,
-    ) -> None:
+    def register_candle(self, candle: Candle) -> None:
         """Ingest a single candle and advance internal state.
 
-        Stage 3 behavior: dedup by ``open_time``, then — if the histogram
-        has crossed the zero line since the last call — clear the forming
-        wave buffer. Finally, append the new candle to the buffer and
-        remember the current histogram value for next time.
+        Dedup by ``open_time``, then — if the histogram has crossed the
+        zero line since the last call — finalize the forming wave and
+        start a new one. Finally, append the candle to the forming buffer.
 
-        Wave construction (turning a finalized buffer into a ``Wave`` and
-        pushing it onto the registry) lands in Stage 4. Until then,
-        ``wave_registry`` stays empty and ``get_current_wave()`` returns
-        ``None`` even while ``_wave_candles`` fills up.
-
-        Args:
-            candle: The OHLCV candle to ingest.
-            histogram_value: Current value of the configured histogram
-                indicator at this candle. Carried separately so ``Candle``
-                stays minimal and indicator-agnostic — the helper can be
-                driven by any sign-flipping oscillator (TSI, MACD, custom)
-                by wiring the right column here at the call site.
+        The histogram value is read from ``candle.histogram_value``.
+        Which DataFrame column maps there is controlled by
+        ``histogram_key`` on the helper — the caller wires the right
+        column when constructing the Candle.
         """
         # Freqtrade re-emits the forming candle on every tick, so the same
         # ``open_time`` can arrive many times. Skip silently — the caller
@@ -191,6 +177,8 @@ class MarketStructureHelper:
             return
         self._last_registered_open_time = candle.open_time
         self._total_candles_registered += 1
+
+        histogram_value = candle.histogram_value
 
         # Use ``is not None`` (not ``if prev``): a 0.0 reading is a valid
         # histogram value, but ``if prev`` would treat it as "unseen".
@@ -512,3 +500,176 @@ class MarketStructureHelper:
                 self._top_waves.pop(0)
             elif evicted.side == "down" and self._bottom_waves and self._bottom_waves[0] is evicted:
                 self._bottom_waves.pop(0)
+
+    # ------------------------------------------------------------------
+    # Wave comparison helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _hco_value(wave: Wave) -> float:
+        """Extract the numeric HCO level from a wave.
+
+        HCO = highest close-or-open: ``max(close, open)`` of the candle
+        stored in ``wave.highest_close_or_open``. This is the price level
+        used when comparing tops across waves.
+        """
+        c = wave.highest_close_or_open
+        return max(c.close, c.open)
+
+    @staticmethod
+    def _lco_value(wave: Wave) -> float:
+        """Extract the numeric LCO level from a wave.
+
+        LCO = lowest close-or-open: ``min(close, open)`` of the candle
+        stored in ``wave.lowest_close_or_open``. This is the price level
+        used when comparing bottoms across waves.
+        """
+        c = wave.lowest_close_or_open
+        return min(c.close, c.open)
+
+    @staticmethod
+    def made_higher_high(last: Wave, previous: Wave) -> bool:
+        """True if ``last`` wave's HCO exceeds ``previous`` wave's HCO."""
+        return MarketStructureHelper._hco_value(last) > MarketStructureHelper._hco_value(previous)
+
+    @staticmethod
+    def made_higher_low(last: Wave, previous: Wave) -> bool:
+        """True if ``last`` wave's LCO exceeds ``previous`` wave's LCO."""
+        return MarketStructureHelper._lco_value(last) > MarketStructureHelper._lco_value(previous)
+
+    @staticmethod
+    def made_lower_low(last: Wave, previous: Wave) -> bool:
+        """True if ``last`` wave's LCO is below ``previous`` wave's LCO."""
+        return MarketStructureHelper._lco_value(last) < MarketStructureHelper._lco_value(previous)
+
+    @staticmethod
+    def made_lower_high(last: Wave, previous: Wave) -> bool:
+        """True if ``last`` wave's HCO is below ``previous`` wave's HCO."""
+        return MarketStructureHelper._hco_value(last) < MarketStructureHelper._hco_value(previous)
+
+    @staticmethod
+    def is_diverging(last: Wave, previous: Wave) -> bool:
+        """True if price made a new extreme but histogram momentum did not.
+
+        For up-waves (bearish divergence): price made a higher close but the
+        peak histogram reading within the wave was lower.
+
+        For down-waves (bullish divergence): price made a lower close but the
+        trough histogram reading within the wave was higher (less negative).
+
+        Histogram extremes are computed from ``wave.candles`` at query time,
+        matching the TS ``getHighestHistogramReading`` /
+        ``getLowestHistogramReading`` pattern.
+        """
+        if last.side == "up":
+            last_hist_high = max(c.histogram_value for c in last.candles)
+            prev_hist_high = max(c.histogram_value for c in previous.candles)
+            return (
+                last.highest_close.close > previous.highest_close.close
+                and last_hist_high < prev_hist_high
+            )
+        last_hist_low = min(c.histogram_value for c in last.candles)
+        prev_hist_low = min(c.histogram_value for c in previous.candles)
+        return (
+            last.lowest_close.close < previous.lowest_close.close and last_hist_low > prev_hist_low
+        )
+
+    # ------------------------------------------------------------------
+    # Between scans
+    # ------------------------------------------------------------------
+
+    def made_lower_low_between(self, wave: Wave, preceding: Wave) -> bool:
+        """True if any wave between ``preceding`` and ``wave`` has a lower low.
+
+        Scans all registry entries between the two given waves (exclusive)
+        checking if any intermediate wave's ``low.low`` undercuts either
+        endpoint. Used by zone detection to rule out double-bottom patterns
+        when an intervening wave made a deeper low.
+        """
+        wave_idx = self._get_wave_index(wave)
+        preceding_idx = self._get_wave_index(preceding)
+        if wave_idx is None or preceding_idx is None:
+            return False
+        for i in range(wave_idx - 1, preceding_idx, -1):
+            w = self._wave_registry[i]
+            if w.low.low < wave.low.low or w.low.low < preceding.low.low:
+                return True
+        return False
+
+    def made_higher_high_between(self, wave: Wave, preceding: Wave) -> bool:
+        """True if any wave between ``preceding`` and ``wave`` has a higher high.
+
+        Mirror of ``made_lower_low_between`` for tops — used by zone
+        detection to rule out double-top patterns.
+        """
+        wave_idx = self._get_wave_index(wave)
+        preceding_idx = self._get_wave_index(preceding)
+        if wave_idx is None or preceding_idx is None:
+            return False
+        for i in range(wave_idx - 1, preceding_idx, -1):
+            w = self._wave_registry[i]
+            if w.high.high > wave.high.high or w.high.high > preceding.high.high:
+                return True
+        return False
+
+    # ------------------------------------------------------------------
+    # Trend state
+    # ------------------------------------------------------------------
+
+    def is_trending_up(self) -> bool:
+        """True if market structure confirms an uptrend.
+
+        Requires four confirmed waves (two tops, two bottoms) showing
+        higher highs and higher lows. The forming wave must not have
+        broken structure — if it's a down-wave, its low must stay above
+        the last bottom's LCO level.
+        """
+        last_top = self.get_last_top()
+        last_bottom = self.get_last_bottom()
+        previous_top = self.get_previous_top()
+        previous_bottom = self.get_previous_bottom()
+        current = self.get_current_wave()
+
+        if (
+            last_top is None
+            or last_bottom is None
+            or previous_top is None
+            or previous_bottom is None
+            or current is None
+        ):
+            return False
+
+        return (
+            self.made_higher_high(last_top, previous_top)
+            and self.made_higher_low(last_bottom, previous_bottom)
+            and (current.side == "up" or current.low.low > self._lco_value(last_bottom))
+        )
+
+    def is_trending_down(self) -> bool:
+        """True if market structure confirms a downtrend.
+
+        Requires four confirmed waves (two tops, two bottoms) showing
+        lower highs and lower lows. The forming wave must not have
+        broken structure — if it's an up-wave, its high must stay below
+        the last top's HCO level.
+        """
+        last_top = self.get_last_top()
+        last_bottom = self.get_last_bottom()
+        previous_top = self.get_previous_top()
+        previous_bottom = self.get_previous_bottom()
+        current = self.get_current_wave()
+
+        if (
+            last_top is None
+            or last_bottom is None
+            or previous_top is None
+            or previous_bottom is None
+            or current is None
+        ):
+            return False
+
+        return (
+            self.made_lower_high(last_top, previous_top)
+            and self.made_lower_low(last_bottom, previous_bottom)
+            and (current.side == "down" or current.high.high < self._hco_value(last_top))
+        )

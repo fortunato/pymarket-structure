@@ -13,11 +13,12 @@ Direction = Literal["up", "down"]
 
 @dataclass(frozen=True, slots=True)
 class Candle:
-    """Minimal OHLCV candle shape the helper consumes.
+    """OHLCV candle with the histogram reading that drives wave detection.
 
-    Mirrors the fields MarketStructureHelper reads off each row. Extensions
-    (ATR, TSI histogram) live in the DataFrame column; the helper pulls the
-    ``tsi_hist`` value out at construction time, not off the Candle itself.
+    The ``histogram_value`` field carries the sign-flipping oscillator
+    value (TSI, MACD, etc.) for this bar. Which DataFrame column maps
+    here is controlled by ``histogram_key`` on the helper — the Candle
+    itself is agnostic to the indicator name.
     """
 
     open_time: int  # epoch ms — unique identifier, used for dedup
@@ -26,6 +27,7 @@ class Candle:
     low: float
     close: float
     volume: float
+    histogram_value: float = 0.0  # oscillator reading at this bar
 
 
 @dataclass(frozen=True, slots=True)

@@ -99,6 +99,7 @@ def hydrate(
             low=float(lows[i]),
             close=float(closes[i]),
             volume=float(volumes[i]),
+            histogram_value=float(hist[i]),
         )
         for i in range(n)
     ]

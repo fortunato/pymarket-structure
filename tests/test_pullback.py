@@ -28,6 +28,7 @@ def _candle(
     low: float = 99.0,
     close: float = 100.5,
     volume: float = 1.0,
+    histogram_value: float = 0.0,
 ) -> Candle:
     return Candle(
         open_time=open_time,
@@ -36,6 +37,7 @@ def _candle(
         low=low,
         close=close,
         volume=volume,
+        histogram_value=histogram_value,
     )
 
 
@@ -50,8 +52,8 @@ class TestPullbackFromBottom:
     def test_none_when_no_prior_bottom(self) -> None:
         """First up-wave has no bottom to pull back from → None."""
         h = MarketStructureHelper()
-        h.register_candle(_candle(open_time=1_000), histogram_value=0.5)
-        h.register_candle(_candle(open_time=2_000), histogram_value=-0.3)  # flip → w-0 (up)
+        h.register_candle(_candle(open_time=1_000, histogram_value=0.5))
+        h.register_candle(_candle(open_time=2_000, histogram_value=-0.3))  # flip → w-0 (up)
         assert h.wave_registry[0].side == "up"
         assert h.wave_registry[0].pullback is None
 
@@ -59,20 +61,17 @@ class TestPullbackFromBottom:
         """Up-wave after a down-wave: pullback has length, breakout, price_diff."""
         h = MarketStructureHelper()
         # Wave 0 (up): single candle, defaults.
-        h.register_candle(_candle(open_time=1_000), histogram_value=0.5)
+        h.register_candle(_candle(open_time=1_000, histogram_value=0.5))
         h.register_candle(
-            _candle(open_time=2_000, open=88, close=85),
-            histogram_value=-0.3,  # flip → w-0 (up)
+            _candle(open_time=2_000, open=88, close=85, histogram_value=-0.3),  # flip → w-0 (up)
         )
         # Wave 1 (down): candle t=2000, LCO = min(88, 85) = 85.
         h.register_candle(
-            _candle(open_time=3_000, open=105, close=110),
-            histogram_value=0.4,  # flip → w-1 (down)
+            _candle(open_time=3_000, open=105, close=110, histogram_value=0.4),  # flip → w-1 (down)
         )
         # Wave 2 (up): candle t=3000, HCO = max(105, 110) = 110.
         h.register_candle(
-            _candle(open_time=4_000),
-            histogram_value=-0.1,  # flip → w-2 (up)
+            _candle(open_time=4_000, histogram_value=-0.1),  # flip → w-2 (up)
         )
 
         w2 = h.wave_registry[2]
@@ -87,17 +86,14 @@ class TestPullbackFromBottom:
         h = MarketStructureHelper()
         # Wave 0 (down): LCO = min(88, 85) = 85.
         h.register_candle(
-            _candle(open_time=1_000, open=88, close=85),
-            histogram_value=-0.5,
+            _candle(open_time=1_000, open=88, close=85, histogram_value=-0.5),
         )
         h.register_candle(
-            _candle(open_time=2_000, open=105, close=110),
-            histogram_value=0.3,  # flip → w-0 (down)
+            _candle(open_time=2_000, open=105, close=110, histogram_value=0.3),  # flip → w-0 (down)
         )
         # Wave 1 (up): HCO = max(105, 110) = 110.
         h.register_candle(
-            _candle(open_time=3_000),
-            histogram_value=-0.2,  # flip → w-1 (up)
+            _candle(open_time=3_000, histogram_value=-0.2),  # flip → w-1 (up)
         )
 
         w1 = h.wave_registry[1]
@@ -112,22 +108,18 @@ class TestPullbackFromBottom:
         h = MarketStructureHelper()
         # Wave 0 (up): HCO = max(120, 118) = 120.
         h.register_candle(
-            _candle(open_time=1_000, open=120, close=118),
-            histogram_value=0.5,
+            _candle(open_time=1_000, open=120, close=118, histogram_value=0.5),
         )
         h.register_candle(
-            _candle(open_time=2_000, open=88, close=85),
-            histogram_value=-0.3,  # flip → w-0 (up)
+            _candle(open_time=2_000, open=88, close=85, histogram_value=-0.3),  # flip → w-0 (up)
         )
         # Wave 1 (down): candle t=2000, LCO = min(88, 85) = 85.
         h.register_candle(
-            _candle(open_time=3_000, open=105, close=110),
-            histogram_value=0.4,  # flip → w-1 (down)
+            _candle(open_time=3_000, open=105, close=110, histogram_value=0.4),  # flip → w-1 (down)
         )
         # Wave 2 (up): candle t=3000, HCO = max(105, 110) = 110.
         h.register_candle(
-            _candle(open_time=4_000),
-            histogram_value=-0.1,  # flip → w-2 (up)
+            _candle(open_time=4_000, histogram_value=-0.1),  # flip → w-2 (up)
         )
 
         w2 = h.wave_registry[2]
@@ -143,33 +135,32 @@ class TestPullbackFromBottom:
         h = MarketStructureHelper()
         # Wave 0 (down): 3 candles.
         h.register_candle(
-            _candle(open_time=1_000, open=100, close=95),
-            histogram_value=-0.5,
+            _candle(open_time=1_000, open=100, close=95, histogram_value=-0.5),
         )
         h.register_candle(
-            _candle(open_time=2_000, open=92, close=90),  # LCO: min(92,90)=90 at pos 1
-            histogram_value=-0.3,
+            _candle(
+                open_time=2_000, open=92, close=90, histogram_value=-0.3
+            ),  # LCO: min(92,90)=90 at pos 1
         )
         h.register_candle(
-            _candle(open_time=3_000, open=93, close=95),  # pos 2 (after LCO)
-            histogram_value=-0.1,
+            _candle(open_time=3_000, open=93, close=95, histogram_value=-0.1),  # pos 2 (after LCO)
         )
         h.register_candle(
-            _candle(open_time=4_000, open=98, close=100),
-            histogram_value=0.4,  # flip → w-0 (down, 3 candles)
+            _candle(
+                open_time=4_000, open=98, close=100, histogram_value=0.4
+            ),  # flip → w-0 (down, 3 candles)
         )
         # Wave 1 (up): 3 candles.
         h.register_candle(
-            _candle(open_time=5_000, open=105, close=110),  # HCO: max(105,110)=110 at pos 1
-            histogram_value=0.6,
+            _candle(
+                open_time=5_000, open=105, close=110, histogram_value=0.6
+            ),  # HCO: max(105,110)=110 at pos 1
         )
         h.register_candle(
-            _candle(open_time=6_000, open=107, close=108),
-            histogram_value=0.2,
+            _candle(open_time=6_000, open=107, close=108, histogram_value=0.2),
         )
         h.register_candle(
-            _candle(open_time=7_000),
-            histogram_value=-0.1,  # flip → w-1 (up, 3 candles)
+            _candle(open_time=7_000, histogram_value=-0.1),  # flip → w-1 (up, 3 candles)
         )
 
         w1 = h.wave_registry[1]
@@ -184,16 +175,13 @@ class TestPullbackFromBottom:
         """Up-wave pullback price_diff is positive (price rose)."""
         h = MarketStructureHelper()
         h.register_candle(
-            _candle(open_time=1_000, open=88, close=85),
-            histogram_value=-0.5,
+            _candle(open_time=1_000, open=88, close=85, histogram_value=-0.5),
         )
         h.register_candle(
-            _candle(open_time=2_000, open=105, close=110),
-            histogram_value=0.3,  # flip → w-0 (down)
+            _candle(open_time=2_000, open=105, close=110, histogram_value=0.3),  # flip → w-0 (down)
         )
         h.register_candle(
-            _candle(open_time=3_000),
-            histogram_value=-0.2,  # flip → w-1 (up)
+            _candle(open_time=3_000, histogram_value=-0.2),  # flip → w-1 (up)
         )
 
         w1 = h.wave_registry[1]
@@ -212,8 +200,8 @@ class TestPullbackFromTop:
     def test_none_when_no_prior_top(self) -> None:
         """First down-wave has no top to pull back from → None."""
         h = MarketStructureHelper()
-        h.register_candle(_candle(open_time=1_000), histogram_value=-0.5)
-        h.register_candle(_candle(open_time=2_000), histogram_value=0.3)  # flip → w-0 (down)
+        h.register_candle(_candle(open_time=1_000, histogram_value=-0.5))
+        h.register_candle(_candle(open_time=2_000, histogram_value=0.3))  # flip → w-0 (down)
         assert h.wave_registry[0].side == "down"
         assert h.wave_registry[0].pullback is None
 
@@ -221,20 +209,17 @@ class TestPullbackFromTop:
         """Down-wave after an up-wave: pullback has breakout, price_diff."""
         h = MarketStructureHelper()
         # Wave 0 (down): single candle.
-        h.register_candle(_candle(open_time=1_000), histogram_value=-0.5)
+        h.register_candle(_candle(open_time=1_000, histogram_value=-0.5))
         h.register_candle(
-            _candle(open_time=2_000, open=115, close=118),
-            histogram_value=0.3,  # flip → w-0 (down)
+            _candle(open_time=2_000, open=115, close=118, histogram_value=0.3),  # flip → w-0 (down)
         )
         # Wave 1 (up): candle t=2000, HCO = max(115, 118) = 118.
         h.register_candle(
-            _candle(open_time=3_000, open=95, close=90),
-            histogram_value=-0.4,  # flip → w-1 (up)
+            _candle(open_time=3_000, open=95, close=90, histogram_value=-0.4),  # flip → w-1 (up)
         )
         # Wave 2 (down): candle t=3000, LCO = min(95, 90) = 90.
         h.register_candle(
-            _candle(open_time=4_000),
-            histogram_value=0.1,  # flip → w-2 (down)
+            _candle(open_time=4_000, histogram_value=0.1),  # flip → w-2 (down)
         )
 
         w2 = h.wave_registry[2]
@@ -249,22 +234,18 @@ class TestPullbackFromTop:
         h = MarketStructureHelper()
         # Wave 0 (down): LCO = min(82, 80) = 80.
         h.register_candle(
-            _candle(open_time=1_000, open=82, close=80),
-            histogram_value=-0.5,
+            _candle(open_time=1_000, open=82, close=80, histogram_value=-0.5),
         )
         h.register_candle(
-            _candle(open_time=2_000, open=115, close=118),
-            histogram_value=0.3,  # flip → w-0 (down)
+            _candle(open_time=2_000, open=115, close=118, histogram_value=0.3),  # flip → w-0 (down)
         )
         # Wave 1 (up): candle t=2000, HCO = max(115, 118) = 118.
         h.register_candle(
-            _candle(open_time=3_000, open=95, close=90),
-            histogram_value=-0.4,  # flip → w-1 (up)
+            _candle(open_time=3_000, open=95, close=90, histogram_value=-0.4),  # flip → w-1 (up)
         )
         # Wave 2 (down): candle t=3000, LCO = min(95, 90) = 90.
         h.register_candle(
-            _candle(open_time=4_000),
-            histogram_value=0.1,  # flip → w-2 (down)
+            _candle(open_time=4_000, histogram_value=0.1),  # flip → w-2 (down)
         )
 
         w2 = h.wave_registry[2]
@@ -279,16 +260,13 @@ class TestPullbackFromTop:
         """Down-wave pullback price_diff is negative (price fell)."""
         h = MarketStructureHelper()
         h.register_candle(
-            _candle(open_time=1_000, open=115, close=118),
-            histogram_value=0.5,
+            _candle(open_time=1_000, open=115, close=118, histogram_value=0.5),
         )
         h.register_candle(
-            _candle(open_time=2_000, open=95, close=90),
-            histogram_value=-0.3,  # flip → w-0 (up)
+            _candle(open_time=2_000, open=95, close=90, histogram_value=-0.3),  # flip → w-0 (up)
         )
         h.register_candle(
-            _candle(open_time=3_000),
-            histogram_value=0.2,  # flip → w-1 (down)
+            _candle(open_time=3_000, histogram_value=0.2),  # flip → w-1 (down)
         )
 
         w1 = h.wave_registry[1]
@@ -300,33 +278,32 @@ class TestPullbackFromTop:
         h = MarketStructureHelper()
         # Wave 0 (up): 3 candles.
         h.register_candle(
-            _candle(open_time=1_000, open=100, close=105),
-            histogram_value=0.5,
+            _candle(open_time=1_000, open=100, close=105, histogram_value=0.5),
         )
         h.register_candle(
-            _candle(open_time=2_000, open=108, close=115),  # HCO: max(108,115)=115 at pos 1
-            histogram_value=0.3,
+            _candle(
+                open_time=2_000, open=108, close=115, histogram_value=0.3
+            ),  # HCO: max(108,115)=115 at pos 1
         )
         h.register_candle(
-            _candle(open_time=3_000, open=110, close=112),  # pos 2 (after HCO)
-            histogram_value=0.1,
+            _candle(open_time=3_000, open=110, close=112, histogram_value=0.1),  # pos 2 (after HCO)
         )
         h.register_candle(
-            _candle(open_time=4_000, open=100, close=98),
-            histogram_value=-0.4,  # flip → w-0 (up, 3 candles)
+            _candle(
+                open_time=4_000, open=100, close=98, histogram_value=-0.4
+            ),  # flip → w-0 (up, 3 candles)
         )
         # Wave 1 (down): 3 candles.
         h.register_candle(
-            _candle(open_time=5_000, open=88, close=85),  # LCO: min(88,85)=85 at pos 1
-            histogram_value=-0.3,
+            _candle(
+                open_time=5_000, open=88, close=85, histogram_value=-0.3
+            ),  # LCO: min(88,85)=85 at pos 1
         )
         h.register_candle(
-            _candle(open_time=6_000, open=90, close=92),
-            histogram_value=-0.1,
+            _candle(open_time=6_000, open=90, close=92, histogram_value=-0.1),
         )
         h.register_candle(
-            _candle(open_time=7_000),
-            histogram_value=0.2,  # flip → w-1 (down, 3 candles)
+            _candle(open_time=7_000, histogram_value=0.2),  # flip → w-1 (down, 3 candles)
         )
 
         w1 = h.wave_registry[1]
@@ -350,16 +327,13 @@ class TestPullbackEdgeCases:
         """Candle has no ``atr`` field → atr_factor stays None."""
         h = MarketStructureHelper()
         h.register_candle(
-            _candle(open_time=1_000, open=88, close=85),
-            histogram_value=-0.5,
+            _candle(open_time=1_000, open=88, close=85, histogram_value=-0.5),
         )
         h.register_candle(
-            _candle(open_time=2_000, open=105, close=110),
-            histogram_value=0.3,
+            _candle(open_time=2_000, open=105, close=110, histogram_value=0.3),
         )
         h.register_candle(
-            _candle(open_time=3_000),
-            histogram_value=-0.2,
+            _candle(open_time=3_000, histogram_value=-0.2),
         )
 
         w1 = h.wave_registry[1]
@@ -371,12 +345,10 @@ class TestPullbackEdgeCases:
         h = MarketStructureHelper()
         # Wave 0 (down): LCO = min(88, 85) = 85.
         h.register_candle(
-            _candle(open_time=1_000, open=88, close=85),
-            histogram_value=-0.5,
+            _candle(open_time=1_000, open=88, close=85, histogram_value=-0.5),
         )
         h.register_candle(
-            _candle(open_time=2_000, open=105, close=110),
-            histogram_value=0.3,  # flip → w-0 (down)
+            _candle(open_time=2_000, open=105, close=110, histogram_value=0.3),  # flip → w-0 (down)
         )
         # Forming up wave: candle t=2000, HCO = max(105, 110) = 110.
 
@@ -393,22 +365,18 @@ class TestPullbackEdgeCases:
         h = MarketStructureHelper()
         # Wave 0 (up): HCO = max(100, 100) = 100 — same as bottom level below.
         h.register_candle(
-            _candle(open_time=1_000, open=100, close=100),
-            histogram_value=0.5,
+            _candle(open_time=1_000, open=100, close=100, histogram_value=0.5),
         )
         h.register_candle(
-            _candle(open_time=2_000, open=100, close=100),
-            histogram_value=-0.3,  # flip → w-0 (up)
+            _candle(open_time=2_000, open=100, close=100, histogram_value=-0.3),  # flip → w-0 (up)
         )
         # Wave 1 (down): LCO = min(100, 100) = 100 — same as previous top.
         h.register_candle(
-            _candle(open_time=3_000, open=105, close=110),
-            histogram_value=0.4,  # flip → w-1 (down)
+            _candle(open_time=3_000, open=105, close=110, histogram_value=0.4),  # flip → w-1 (down)
         )
         # Wave 2 (up).
         h.register_candle(
-            _candle(open_time=4_000),
-            histogram_value=-0.1,  # flip → w-2 (up)
+            _candle(open_time=4_000, histogram_value=-0.1),  # flip → w-2 (up)
         )
 
         w2 = h.wave_registry[2]

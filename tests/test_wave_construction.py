@@ -24,6 +24,7 @@ def _candle(
     low: float = 99.0,
     close: float = 100.5,
     volume: float = 1.0,
+    histogram_value: float = 0.0,
 ) -> Candle:
     return Candle(
         open_time=open_time,
@@ -32,6 +33,7 @@ def _candle(
         low=low,
         close=close,
         volume=volume,
+        histogram_value=histogram_value,
     )
 
 
@@ -42,21 +44,25 @@ def _trigger_one_up_wave(h: MarketStructureHelper) -> None:
     wave built from the three candles.
     """
     h.register_candle(
-        _candle(open_time=1_000, open=100.0, high=105.0, low=98.0, close=103.0),
-        histogram_value=0.5,
+        _candle(
+            open_time=1_000, open=100.0, high=105.0, low=98.0, close=103.0, histogram_value=0.5
+        ),
     )
     h.register_candle(
-        _candle(open_time=2_000, open=102.0, high=110.0, low=100.0, close=108.0),
-        histogram_value=0.3,
+        _candle(
+            open_time=2_000, open=102.0, high=110.0, low=100.0, close=108.0, histogram_value=0.3
+        ),
     )
     h.register_candle(
-        _candle(open_time=3_000, open=107.0, high=109.0, low=101.0, close=106.0),
-        histogram_value=0.1,
+        _candle(
+            open_time=3_000, open=107.0, high=109.0, low=101.0, close=106.0, histogram_value=0.1
+        ),
     )
     # Flip → wave constructed from the three candles above.
     h.register_candle(
-        _candle(open_time=4_000, open=104.0, high=106.0, low=97.0, close=98.0),
-        histogram_value=-0.2,
+        _candle(
+            open_time=4_000, open=104.0, high=106.0, low=97.0, close=98.0, histogram_value=-0.2
+        ),
     )
 
 
@@ -81,9 +87,9 @@ class TestWaveConstruction:
     def test_down_wave_side(self) -> None:
         """Negative histogram candles produce a ``"down"`` wave."""
         h = MarketStructureHelper()
-        h.register_candle(_candle(open_time=1_000), histogram_value=-0.5)
-        h.register_candle(_candle(open_time=2_000), histogram_value=-0.3)
-        h.register_candle(_candle(open_time=3_000), histogram_value=0.2)  # flip
+        h.register_candle(_candle(open_time=1_000, histogram_value=-0.5))
+        h.register_candle(_candle(open_time=2_000, histogram_value=-0.3))
+        h.register_candle(_candle(open_time=3_000, histogram_value=0.2))  # flip
         assert h.wave_registry[0].side == "down"
 
     def test_wave_high_is_candle_with_highest_high(self) -> None:
@@ -146,9 +152,9 @@ class TestWaveConstruction:
     def test_wave_ids_are_unique(self) -> None:
         """Two successive waves get different IDs."""
         h = MarketStructureHelper()
-        h.register_candle(_candle(open_time=1_000), histogram_value=0.5)
-        h.register_candle(_candle(open_time=2_000), histogram_value=-0.3)  # flip
-        h.register_candle(_candle(open_time=3_000), histogram_value=0.4)  # flip
+        h.register_candle(_candle(open_time=1_000, histogram_value=0.5))
+        h.register_candle(_candle(open_time=2_000, histogram_value=-0.3))  # flip
+        h.register_candle(_candle(open_time=3_000, histogram_value=0.4))  # flip
         assert len(h.wave_registry) == 2
         assert h.wave_registry[0].id != h.wave_registry[1].id
         assert h.wave_registry[1].id == "w-1"
@@ -191,11 +197,11 @@ class TestExtremumIndices:
         """The second wave's indices are offset by the first wave's length."""
         h = MarketStructureHelper()
         # Wave 1: two candles (indices 0, 1), then flip at index 2.
-        h.register_candle(_candle(open_time=1_000), histogram_value=0.5)
-        h.register_candle(_candle(open_time=2_000), histogram_value=0.3)
-        h.register_candle(_candle(open_time=3_000), histogram_value=-0.2)  # flip
+        h.register_candle(_candle(open_time=1_000, histogram_value=0.5))
+        h.register_candle(_candle(open_time=2_000, histogram_value=0.3))
+        h.register_candle(_candle(open_time=3_000, histogram_value=-0.2))  # flip
         # Wave 2: one candle (index 2), then flip at index 3.
-        h.register_candle(_candle(open_time=4_000), histogram_value=0.4)  # flip
+        h.register_candle(_candle(open_time=4_000, histogram_value=0.4))  # flip
 
         w2 = h.wave_registry[1]
         # The single candle of wave 2 is at global index 2 (3rd candle, 0-based).
@@ -205,9 +211,11 @@ class TestExtremumIndices:
     def test_single_candle_wave(self) -> None:
         """A wave with exactly one candle: all extremes point at that candle."""
         h = MarketStructureHelper()
-        c = _candle(open_time=1_000, open=100.0, high=105.0, low=95.0, close=102.0)
-        h.register_candle(c, histogram_value=0.5)
-        h.register_candle(_candle(open_time=2_000), histogram_value=-0.3)  # flip
+        c = _candle(
+            open_time=1_000, open=100.0, high=105.0, low=95.0, close=102.0, histogram_value=0.5
+        )
+        h.register_candle(c)
+        h.register_candle(_candle(open_time=2_000, histogram_value=-0.3))  # flip
 
         w = h.wave_registry[0]
         assert w.high is c
@@ -231,8 +239,8 @@ class TestDirectionalArrays:
 
     def test_down_wave_accessible_via_get_last_bottom(self) -> None:
         h = MarketStructureHelper()
-        h.register_candle(_candle(open_time=1_000), histogram_value=-0.5)
-        h.register_candle(_candle(open_time=2_000), histogram_value=0.3)  # flip
+        h.register_candle(_candle(open_time=1_000, histogram_value=-0.5))
+        h.register_candle(_candle(open_time=2_000, histogram_value=0.3))  # flip
         assert h.get_last_bottom() is not None
         assert h.get_last_bottom() is h.wave_registry[0]
         assert h.get_last_top() is None
@@ -241,9 +249,9 @@ class TestDirectionalArrays:
         """up → down → up produces one top and one bottom (the first up
         wave is in the registry, the forming wave is not)."""
         h = MarketStructureHelper()
-        h.register_candle(_candle(open_time=1_000), histogram_value=0.5)
-        h.register_candle(_candle(open_time=2_000), histogram_value=-0.3)  # flip → up wave
-        h.register_candle(_candle(open_time=3_000), histogram_value=0.2)  # flip → down wave
+        h.register_candle(_candle(open_time=1_000, histogram_value=0.5))
+        h.register_candle(_candle(open_time=2_000, histogram_value=-0.3))  # flip → up wave
+        h.register_candle(_candle(open_time=3_000, histogram_value=0.2))  # flip → down wave
 
         assert len(h.wave_registry) == 2
         assert h.get_last_top() is h.wave_registry[0]
@@ -260,8 +268,7 @@ class TestEviction:
         sign = 0.5
         for i in range(7):
             h.register_candle(
-                _candle(open_time=1_000 * (i + 1)),
-                histogram_value=sign,
+                _candle(open_time=1_000 * (i + 1), histogram_value=sign),
             )
             sign = -sign
 
@@ -275,8 +282,7 @@ class TestEviction:
         sign = 0.5
         for i in range(5):
             h.register_candle(
-                _candle(open_time=1_000 * (i + 1)),
-                histogram_value=sign,
+                _candle(open_time=1_000 * (i + 1), histogram_value=sign),
             )
             sign = -sign
 
@@ -299,13 +305,13 @@ class TestMultipleWaves:
     def test_multi_flip_builds_correct_count(self) -> None:
         """7 candles with 3 sign-flips → 3 waves in the registry."""
         h = MarketStructureHelper()
-        h.register_candle(_candle(open_time=1_000), histogram_value=0.4)
-        h.register_candle(_candle(open_time=2_000), histogram_value=0.2)
-        h.register_candle(_candle(open_time=3_000), histogram_value=-0.1)  # flip 1
-        h.register_candle(_candle(open_time=4_000), histogram_value=-0.3)
-        h.register_candle(_candle(open_time=5_000), histogram_value=0.2)  # flip 2
-        h.register_candle(_candle(open_time=6_000), histogram_value=0.5)
-        h.register_candle(_candle(open_time=7_000), histogram_value=-0.4)  # flip 3
+        h.register_candle(_candle(open_time=1_000, histogram_value=0.4))
+        h.register_candle(_candle(open_time=2_000, histogram_value=0.2))
+        h.register_candle(_candle(open_time=3_000, histogram_value=-0.1))  # flip 1
+        h.register_candle(_candle(open_time=4_000, histogram_value=-0.3))
+        h.register_candle(_candle(open_time=5_000, histogram_value=0.2))  # flip 2
+        h.register_candle(_candle(open_time=6_000, histogram_value=0.5))
+        h.register_candle(_candle(open_time=7_000, histogram_value=-0.4))  # flip 3
 
         assert len(h.wave_registry) == 3
         assert h.wave_registry[0].side == "up"  # first wave: positive histogram
@@ -315,11 +321,11 @@ class TestMultipleWaves:
     def test_wave_candle_counts_match_flip_boundaries(self) -> None:
         """Each wave's candle tuple has the right number of candles."""
         h = MarketStructureHelper()
-        h.register_candle(_candle(open_time=1_000), histogram_value=0.4)
-        h.register_candle(_candle(open_time=2_000), histogram_value=0.2)
-        h.register_candle(_candle(open_time=3_000), histogram_value=-0.1)  # flip
-        h.register_candle(_candle(open_time=4_000), histogram_value=-0.3)
-        h.register_candle(_candle(open_time=5_000), histogram_value=0.2)  # flip
+        h.register_candle(_candle(open_time=1_000, histogram_value=0.4))
+        h.register_candle(_candle(open_time=2_000, histogram_value=0.2))
+        h.register_candle(_candle(open_time=3_000, histogram_value=-0.1))  # flip
+        h.register_candle(_candle(open_time=4_000, histogram_value=-0.3))
+        h.register_candle(_candle(open_time=5_000, histogram_value=0.2))  # flip
 
         assert len(h.wave_registry[0].candles) == 2  # t=1000, t=2000
         assert len(h.wave_registry[1].candles) == 2  # t=3000, t=4000
@@ -329,8 +335,7 @@ class TestMultipleWaves:
         h = MarketStructureHelper()
         for i in range(10):
             h.register_candle(
-                _candle(open_time=1_000 * (i + 1)),
-                histogram_value=0.3,
+                _candle(open_time=1_000 * (i + 1), histogram_value=0.3),
             )
         assert h.wave_registry == ()
 

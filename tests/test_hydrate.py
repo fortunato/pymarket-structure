@@ -46,6 +46,7 @@ def _make_candle(row: tuple[float, ...]) -> Candle:
         low=float(row[3]),
         close=float(row[4]),
         volume=float(row[5]),
+        histogram_value=float(row[6]),
     )
 
 
@@ -223,18 +224,22 @@ class TestHydrateFormingWave:
         """Re-registering the last candle is silently ignored."""
         h = hydrate(_make_df())
         last_row = ROWS[-1]
-        h.register_candle(
-            _make_candle(last_row),
-            histogram_value=last_row[6],
-        )
+        h.register_candle(_make_candle(last_row))
         assert h.total_candles_registered == 7  # no change
 
     def test_subsequent_register_candle_extends(self) -> None:
         """A new candle after hydrate is processed normally."""
         h = hydrate(_make_df())
         h.register_candle(
-            Candle(open_time=8_000, open=95.0, high=98.0, low=93.0, close=94.0, volume=1.0),
-            histogram_value=-0.5,  # same sign as forming wave → no flip
+            Candle(
+                open_time=8_000,
+                open=95.0,
+                high=98.0,
+                low=93.0,
+                close=94.0,
+                volume=1.0,
+                histogram_value=-0.5,
+            ),
         )
         assert h.total_candles_registered == 8
         wave = h.get_current_wave()
@@ -247,8 +252,15 @@ class TestHydrateFormingWave:
         assert len(h.wave_registry) == 3  # before
 
         h.register_candle(
-            Candle(open_time=8_000, open=95.0, high=98.0, low=93.0, close=94.0, volume=1.0),
-            histogram_value=0.3,  # flip → confirms forming down wave
+            Candle(
+                open_time=8_000,
+                open=95.0,
+                high=98.0,
+                low=93.0,
+                close=94.0,
+                volume=1.0,
+                histogram_value=0.3,
+            ),
         )
         assert len(h.wave_registry) == 4
         assert h.wave_registry[3].side == "down"
@@ -268,7 +280,7 @@ class TestHydrateParity:
         # Incremental path
         h_inc = MarketStructureHelper()
         for row in ROWS:
-            h_inc.register_candle(_make_candle(row), histogram_value=row[6])
+            h_inc.register_candle(_make_candle(row))
 
         # Hydrate path
         h_hyd = hydrate(_make_df())
@@ -282,7 +294,7 @@ class TestHydrateParity:
         """Forming wave from both paths is identical."""
         h_inc = MarketStructureHelper()
         for row in ROWS:
-            h_inc.register_candle(_make_candle(row), histogram_value=row[6])
+            h_inc.register_candle(_make_candle(row))
 
         h_hyd = hydrate(_make_df())
 
@@ -307,7 +319,7 @@ class TestHydrateParity:
 
         h_inc = MarketStructureHelper()
         for row in rows:
-            h_inc.register_candle(_make_candle(row), histogram_value=row[6])
+            h_inc.register_candle(_make_candle(row))
 
         h_hyd = hydrate(_make_df(rows))
 
