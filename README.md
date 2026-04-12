@@ -4,6 +4,10 @@ Python library for market structure analysis — swings, trends, support/resista
 
 > **Status:** early development. API is unstable and the library is not yet published.
 
+## Documentation
+
+- [Freqtrade Column Reference](docs/freqtrade-columns.md) — all 30 `ms_*` columns projected onto the DataFrame, with dtypes, tier descriptions, and strategy examples.
+
 ## Install
 
 ```bash
