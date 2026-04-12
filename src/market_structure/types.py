@@ -88,3 +88,15 @@ class Zone:
     overlapping_high_wave_ids: tuple[str, ...]  # up-waves whose highs fall within this zone
     is_double: bool  # double bottom (support) or double top (resistance)
     side: Direction  # "down" = support zone; "up" = resistance zone
+
+
+@dataclass(frozen=True, slots=True)
+class LongTermSwing:
+    """Result of ``pick_long_term_top`` / ``pick_long_term_bottom``.
+
+    Carries an ``age`` (candle distance from the current bar to the
+    extreme) and the ``wave`` that holds the significant extreme.
+    """
+
+    age: int  # candle distance from the current bar to the extreme
+    wave: Wave  # the wave containing the significant extreme

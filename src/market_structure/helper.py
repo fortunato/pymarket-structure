@@ -9,7 +9,7 @@ See ``docs/porting-market-structure-helper.md`` for the architectural
 rationale (option (c) hybrid).
 """
 
-from market_structure.types import Candle, Direction, Pullback, Wave
+from market_structure.types import Candle, Direction, LongTermSwing, Pullback, Wave, Zone
 
 
 class MarketStructureHelper:
@@ -67,6 +67,11 @@ class MarketStructureHelper:
         self._next_wave_id: int = 0
         self._wave_start_index: int = 0
 
+        # Zone cache — (params_key, cached_result), single-entry per zone type,
+        # invalidated on _push_wave.
+        self._zone_cache_support: tuple[tuple[object, ...], list[Zone]] | None = None
+        self._zone_cache_resistance: tuple[tuple[object, ...], list[Zone]] | None = None
+
     # ------------------------------------------------------------------
     # Read-only state accessors
     # ------------------------------------------------------------------
@@ -89,8 +94,7 @@ class MarketStructureHelper:
         """Return the most recently confirmed up-wave, or ``None`` during warm-up.
 
         When ``include_forming_wave`` is True and the forming wave is an
-        up-wave, it is returned instead — matching the TS semantics where
-        ``getLastTop(true)`` treats the forming wave as "last".
+        up-wave, it is returned instead.
         """
         if include_forming_wave:
             current = self.get_current_wave()
@@ -199,8 +203,8 @@ class MarketStructureHelper:
     def _sign_flipped(prev: float, curr: float) -> bool:
         """Return True iff ``prev`` and ``curr`` straddle the zero line.
 
-        Matches the TS original's semantics: ``>= 0`` is classified as
-        the "up" side and ``< 0`` as the "down" side. A flip occurs iff
+        ``>= 0`` is classified as the "up" side and ``< 0`` as the
+        "down" side. A flip occurs iff
         the up/down classification of ``curr`` differs from ``prev``.
 
         Exact zero intentionally sits on the "up" side so that a reading
@@ -480,6 +484,7 @@ class MarketStructureHelper:
             self._top_waves.append(wave)
         else:
             self._bottom_waves.append(wave)
+        self._invalidate_zone_cache()
         self._evict_old_waves()
 
     def _evict_old_waves(self) -> None:
@@ -500,6 +505,11 @@ class MarketStructureHelper:
                 self._top_waves.pop(0)
             elif evicted.side == "down" and self._bottom_waves and self._bottom_waves[0] is evicted:
                 self._bottom_waves.pop(0)
+
+    def _invalidate_zone_cache(self) -> None:
+        """Clear both zone caches. Called from ``_push_wave``."""
+        self._zone_cache_support = None
+        self._zone_cache_resistance = None
 
     # ------------------------------------------------------------------
     # Wave comparison helpers
@@ -557,9 +567,7 @@ class MarketStructureHelper:
         For down-waves (bullish divergence): price made a lower close but the
         trough histogram reading within the wave was higher (less negative).
 
-        Histogram extremes are computed from ``wave.candles`` at query time,
-        matching the TS ``getHighestHistogramReading`` /
-        ``getLowestHistogramReading`` pattern.
+        Histogram extremes are computed from ``wave.candles`` at query time.
         """
         if last.side == "up":
             last_hist_high = max(c.histogram_value for c in last.candles)
@@ -673,3 +681,292 @@ class MarketStructureHelper:
             and self.made_lower_low(last_bottom, previous_bottom)
             and (current.side == "down" or current.high.high < self._hco_value(last_top))
         )
+
+    # ------------------------------------------------------------------
+    # Zone range helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def get_bottom_range(wave: Wave) -> tuple[float, float]:
+        """Compute the wick-based price range for a bottom (support) zone.
+
+        The zone spans from the lowest low in the wave up to the body
+        bottom of the LCO candle — i.e. ``min(close, open)`` of the
+        candle with the lowest close-or-open.
+        """
+        lco = wave.lowest_close_or_open
+        body_bottom = min(lco.close, lco.open)
+        low_bound = min(lco.low, wave.low.low)
+        return (low_bound, body_bottom)
+
+    @staticmethod
+    def get_top_range(wave: Wave) -> tuple[float, float]:
+        """Compute the wick-based price range for a top (resistance) zone.
+
+        The zone spans from the body top of the HCO candle up to the
+        highest high in the wave — i.e. ``max(close, open)`` of the
+        candle with the highest close-or-open.
+        """
+        hco = wave.highest_close_or_open
+        body_top = max(hco.close, hco.open)
+        high_bound = max(hco.high, wave.high.high)
+        return (body_top, high_bound)
+
+    @staticmethod
+    def range_overlaps(a: tuple[float, float], b: tuple[float, float]) -> bool:
+        """True if two ``(min, max)`` price ranges overlap.
+
+        Three cases: ``a[0]`` falls within ``b``, ``a[1]`` falls within
+        ``b``, or ``a`` completely contains ``b``.
+        """
+        return (b[0] <= a[0] <= b[1]) or (b[0] <= a[1] <= b[1]) or (a[0] <= b[0] and a[1] >= b[1])
+
+    # ------------------------------------------------------------------
+    # Zone detection
+    # ------------------------------------------------------------------
+
+    def get_support_zones(
+        self,
+        include_forming_wave: bool = False,
+        double_bottom_proximity: int = 1,
+        filter_if_not_overlapping: bool = False,
+        only_include_most_recent_zone: bool = True,
+    ) -> list[Zone]:
+        """Identify support zones from overlapping bottom-wave wick ranges.
+
+        Walks bottom waves newest-to-oldest. For each, builds a wick
+        range via ``get_bottom_range`` and checks all older bottoms for
+        overlap. Zones that overlap a recent double-bottom are extended
+        to include the deeper wick.
+
+        Args:
+            include_forming_wave: Include the in-flight wave if it's a
+                down-wave.
+            double_bottom_proximity: How many preceding same-side waves
+                to consider for double-bottom labelling.
+            filter_if_not_overlapping: If True, drop zones with zero
+                overlapping lows (no confirmation from older bottoms).
+            only_include_most_recent_zone: If True, skip a wave whose
+                range overlaps an already-registered zone.
+        """
+        params_key = (
+            include_forming_wave,
+            double_bottom_proximity,
+            filter_if_not_overlapping,
+            only_include_most_recent_zone,
+        )
+        if self._zone_cache_support is not None and self._zone_cache_support[0] == params_key:
+            return self._zone_cache_support[1]
+
+        # Build working list: newest bottom first.
+        down_waves: list[Wave] = list(reversed(self._bottom_waves))
+        if include_forming_wave:
+            current = self.get_current_wave()
+            if current is not None and current.side == "down":
+                down_waves.insert(0, current)
+
+        up_waves: list[Wave] = list(reversed(self._top_waves))
+
+        zones: list[Zone] = []
+
+        for idx, wave in enumerate(down_waves):
+            current_range = list(self.get_bottom_range(wave))
+            overlapping_lows: list[str] = []
+            is_double = False
+
+            # Skip if this range overlaps an already-registered zone.
+            if only_include_most_recent_zone and any(
+                self.range_overlaps((current_range[0], current_range[1]), z.range) for z in zones
+            ):
+                continue
+
+            # Match against all preceding (older) bottoms.
+            for preceding_idx, preceding_wave in enumerate(down_waves[idx + 1 :]):
+                bottom_range = self.get_bottom_range(preceding_wave)
+                if self.range_overlaps(bottom_range, (current_range[0], current_range[1])):
+                    overlapping_lows.append(preceding_wave.id)
+
+                    if preceding_idx < double_bottom_proximity and not self.made_lower_low_between(
+                        wave, preceding_wave
+                    ):
+                        is_double = True
+                        if preceding_wave.low.low < current_range[0]:
+                            current_range[0] = preceding_wave.low.low
+
+            # Find overlapping top waves.
+            overlapping_highs: list[str] = [
+                w.id
+                for w in up_waves
+                if self.range_overlaps(self.get_top_range(w), (current_range[0], current_range[1]))
+            ]
+
+            zones.append(
+                Zone(
+                    range=(current_range[0], current_range[1]),
+                    anchor_wave_id=wave.id,
+                    overlapping_low_wave_ids=tuple(overlapping_lows),
+                    overlapping_high_wave_ids=tuple(overlapping_highs),
+                    is_double=is_double,
+                    side="down",
+                )
+            )
+
+        result = [
+            z
+            for z in zones
+            if not filter_if_not_overlapping or len(z.overlapping_low_wave_ids) >= 1
+        ]
+        self._zone_cache_support = (params_key, result)
+        return result
+
+    def get_resistance_zones(
+        self,
+        include_forming_wave: bool = False,
+        double_top_proximity: int = 1,
+        filter_if_not_overlapping: bool = False,
+        only_include_most_recent_zone: bool = True,
+    ) -> list[Zone]:
+        """Identify resistance zones from overlapping top-wave wick ranges.
+
+        Mirror of ``get_support_zones`` for tops / resistance.
+        """
+        params_key = (
+            include_forming_wave,
+            double_top_proximity,
+            filter_if_not_overlapping,
+            only_include_most_recent_zone,
+        )
+        if self._zone_cache_resistance is not None and self._zone_cache_resistance[0] == params_key:
+            return self._zone_cache_resistance[1]
+
+        up_waves: list[Wave] = list(reversed(self._top_waves))
+        if include_forming_wave:
+            current = self.get_current_wave()
+            if current is not None and current.side == "up":
+                up_waves.insert(0, current)
+
+        down_waves: list[Wave] = list(reversed(self._bottom_waves))
+
+        zones: list[Zone] = []
+
+        for idx, wave in enumerate(up_waves):
+            current_range = list(self.get_top_range(wave))
+            overlapping_highs: list[str] = []
+            is_double = False
+
+            if only_include_most_recent_zone and any(
+                self.range_overlaps((current_range[0], current_range[1]), z.range) for z in zones
+            ):
+                continue
+
+            for preceding_idx, preceding_wave in enumerate(up_waves[idx + 1 :]):
+                top_range = self.get_top_range(preceding_wave)
+                if self.range_overlaps(top_range, (current_range[0], current_range[1])):
+                    overlapping_highs.append(preceding_wave.id)
+
+                    if preceding_idx < double_top_proximity and not self.made_higher_high_between(
+                        wave, preceding_wave
+                    ):
+                        is_double = True
+                        if preceding_wave.high.high > current_range[1]:
+                            current_range[1] = preceding_wave.high.high
+
+            overlapping_lows: list[str] = [
+                w.id
+                for w in down_waves
+                if self.range_overlaps(
+                    self.get_bottom_range(w), (current_range[0], current_range[1])
+                )
+            ]
+
+            zones.append(
+                Zone(
+                    range=(current_range[0], current_range[1]),
+                    anchor_wave_id=wave.id,
+                    overlapping_low_wave_ids=tuple(overlapping_lows),
+                    overlapping_high_wave_ids=tuple(overlapping_highs),
+                    is_double=is_double,
+                    side="up",
+                )
+            )
+
+        result = [
+            z
+            for z in zones
+            if not filter_if_not_overlapping or len(z.overlapping_high_wave_ids) >= 1
+        ]
+        self._zone_cache_resistance = (params_key, result)
+        return result
+
+    # ------------------------------------------------------------------
+    # Long-term swing pickers
+    # ------------------------------------------------------------------
+
+    def pick_long_term_top(self, high_since: int = 100, max_age: int = 50) -> LongTermSwing | None:
+        """Find a significant long-term swing high in the recent registry.
+
+        Walks ``_wave_registry`` in reverse, accumulating ``age`` (candle
+        count from the current bar). Returns the first up-wave whose
+        ``high_since`` meets the threshold, or ``None`` if no such wave
+        exists within ``max_age`` bars.
+        """
+        current = self.get_current_wave()
+        age = len(current.candles) if current is not None else 0
+
+        for wave in reversed(self._wave_registry):
+            if wave.side == "up" and wave.high_since >= high_since:
+                # Find the HCO candle's position within the wave (from the end).
+                local_idx = next(
+                    i
+                    for i, c in enumerate(reversed(wave.candles))
+                    if c.open_time == wave.highest_close_or_open.open_time
+                )
+                age += local_idx
+                return LongTermSwing(age=age, wave=wave)
+
+            age += len(wave.candles)
+            if age > max_age:
+                return None
+
+        return None
+
+    def pick_long_term_bottom(
+        self, low_since: int = 100, max_age: int = 50
+    ) -> LongTermSwing | None:
+        """Find a significant long-term swing low in the recent registry.
+
+        Mirror of ``pick_long_term_top`` for down-waves / ``low_since``.
+        """
+        current = self.get_current_wave()
+        age = len(current.candles) if current is not None else 0
+
+        for wave in reversed(self._wave_registry):
+            if wave.side == "down" and wave.low_since >= low_since:
+                local_idx = next(
+                    i
+                    for i, c in enumerate(reversed(wave.candles))
+                    if c.open_time == wave.lowest_close_or_open.open_time
+                )
+                age += local_idx
+                return LongTermSwing(age=age, wave=wave)
+
+            age += len(wave.candles)
+            if age > max_age:
+                return None
+
+        return None
+
+    # ------------------------------------------------------------------
+    # Wave lookup by ID
+    # ------------------------------------------------------------------
+
+    def get_wave_by_id(self, wave_id: str) -> Wave | None:
+        """Return the wave with the given ID, or ``None``.
+
+        Linear scan — the registry is small (capped at ``max_waves``).
+        Needed by downstream zone utilities (Stage 12).
+        """
+        for wave in self._wave_registry:
+            if wave.id == wave_id:
+                return wave
+        return None
