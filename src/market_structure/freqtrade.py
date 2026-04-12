@@ -819,6 +819,10 @@ def attach_market_structure(
     pair = metadata["pair"]
     helper = store.get(pair)
 
+    # Freqtrade provides 'date' (datetime); hydrate expects 'open_time' (epoch ms).
+    if "open_time" not in df.columns and "date" in df.columns:
+        df["open_time"] = df["date"].astype("int64") // 10**6
+
     if helper is None:
         # First call — hydrate full frame with eviction disabled.
         df = df.reset_index(drop=True)
