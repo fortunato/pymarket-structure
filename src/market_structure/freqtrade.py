@@ -66,6 +66,8 @@ VALID_COLUMNS: frozenset[str] = frozenset(
         "resistance_is_double",
         "support_overlap_count",
         "resistance_overlap_count",
+        "support_zone_anchor_time",
+        "resistance_zone_anchor_time",
         # Tier 3 — per-bar
         "is_trending_up",
         "is_trending_down",
@@ -105,6 +107,44 @@ def _lco_value(wave: Wave) -> float:
 # ------------------------------------------------------------------
 
 
+def _zone_anchor_time(zone: Zone, registry_slice: list[Wave]) -> float:
+    """Compute the earliest defining candle timestamp for a zone.
+
+    For support zones (side="down"), the zone is defined by the anchor
+    wave's low wick and LCO body candles.  For resistance zones
+    (side="up"), by the high wick and HCO body candles.
+
+    When the zone is a double and its range was extended by a preceding
+    wave's wick, we also consider that preceding wave's defining candle
+    so the rectangle starts early enough.
+    """
+    wave_by_id: dict[str, Wave] = {w.id: w for w in registry_slice}
+    anchor = wave_by_id.get(zone.anchor_wave_id)
+    if anchor is None:
+        return np.nan
+
+    if zone.side == "down":
+        # Support zone: anchor is a down-wave
+        anchor_time = min(anchor.low.open_time, anchor.lowest_close_or_open.open_time)
+        # If double-bottom extended the range, check the preceding wave
+        if zone.is_double:
+            for wid in zone.overlapping_low_wave_ids:
+                w = wave_by_id.get(wid)
+                if w is not None and w.low.low <= zone.range[0]:
+                    anchor_time = min(anchor_time, w.low.open_time)
+    else:
+        # Resistance zone: anchor is an up-wave
+        anchor_time = min(anchor.high.open_time, anchor.highest_close_or_open.open_time)
+        # If double-top extended the range, check the preceding wave
+        if zone.is_double:
+            for wid in zone.overlapping_high_wave_ids:
+                w = wave_by_id.get(wid)
+                if w is not None and w.high.high >= zone.range[1]:
+                    anchor_time = min(anchor_time, w.high.open_time)
+
+    return float(anchor_time)
+
+
 def _snapshot_zones(
     snap: dict[str, object],
     helper: MarketStructureHelper,
@@ -123,7 +163,13 @@ def _snapshot_zones(
     the waves confirmed so far.
     """
     need_support = bool(
-        {"support_zone_low", "support_zone_high", "support_is_double", "support_overlap_count"}
+        {
+            "support_zone_low",
+            "support_zone_high",
+            "support_is_double",
+            "support_overlap_count",
+            "support_zone_anchor_time",
+        }
         & set(columns)
     )
     need_resistance = bool(
@@ -132,6 +178,7 @@ def _snapshot_zones(
             "resistance_zone_high",
             "resistance_is_double",
             "resistance_overlap_count",
+            "resistance_zone_anchor_time",
         }
         & set(columns)
     )
@@ -176,6 +223,8 @@ def _snapshot_zones(
         snap["support_is_double"] = sz.is_double if sz else pd.NA
     if "support_overlap_count" in columns:
         snap["support_overlap_count"] = len(sz.overlapping_low_wave_ids) if sz else pd.NA
+    if "support_zone_anchor_time" in columns:
+        snap["support_zone_anchor_time"] = _zone_anchor_time(sz, registry_slice) if sz else np.nan
 
     if "resistance_zone_low" in columns:
         snap["resistance_zone_low"] = rz.range[0] if rz else np.nan
@@ -185,6 +234,10 @@ def _snapshot_zones(
         snap["resistance_is_double"] = rz.is_double if rz else pd.NA
     if "resistance_overlap_count" in columns:
         snap["resistance_overlap_count"] = len(rz.overlapping_high_wave_ids) if rz else pd.NA
+    if "resistance_zone_anchor_time" in columns:
+        snap["resistance_zone_anchor_time"] = (
+            _zone_anchor_time(rz, registry_slice) if rz else np.nan
+        )
 
 
 # ------------------------------------------------------------------
@@ -473,6 +526,8 @@ _TIER2_DEFAULTS: dict[str, object] = {
     "resistance_is_double": pd.NA,
     "support_overlap_count": pd.NA,
     "resistance_overlap_count": pd.NA,
+    "support_zone_anchor_time": np.nan,
+    "resistance_zone_anchor_time": np.nan,
 }
 
 
@@ -549,6 +604,8 @@ def _broadcast_tier2(
         "resistance_is_double": "boolean",
         "support_overlap_count": "Int32",
         "resistance_overlap_count": "Int32",
+        "support_zone_anchor_time": "float64",
+        "resistance_zone_anchor_time": "float64",
         "is_trending_up": "bool",
         "is_trending_down": "bool",
     }
