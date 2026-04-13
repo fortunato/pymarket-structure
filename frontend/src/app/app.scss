@@ -1,0 +1,35 @@
+:host {
+	display: block;
+	height: 100vh;
+}
+
+.layout {
+	display: grid;
+	grid-template-rows: auto 1fr auto;
+	grid-template-columns: 1fr 320px;
+	grid-template-areas:
+		'header  header'
+		'chart   sidebar'
+		'controls controls';
+	height: 100%;
+}
+
+.header {
+	grid-area: header;
+}
+
+.chart {
+	grid-area: chart;
+	min-height: 0;
+}
+
+.sidebar {
+	grid-area: sidebar;
+	background: var(--bg-panel);
+	border-left: 1px solid var(--border);
+	min-height: 0;
+}
+
+.controls {
+	grid-area: controls;
+}

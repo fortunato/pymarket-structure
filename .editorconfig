@@ -51,6 +51,18 @@ indent_size = 2
 [Justfile]
 indent_size = 4
 
+# ─── TypeScript / JavaScript ───────────────────────────────────────────────
+[*.{ts,js,mts,mjs}]
+indent_style = tab
+
+# ─── HTML ──────────────────────────────────────────────────────────────────
+[*.html]
+indent_style = tab
+
+# ─── SCSS / CSS ────────────────────────────────────────────────────────────
+[*.{scss,css}]
+indent_style = tab
+
 # ─── Makefile (in case you ever add one) ───────────────────────────────────
 # Make REQUIRES tabs in recipe lines — non-negotiable.
 [{Makefile,*.mk}]

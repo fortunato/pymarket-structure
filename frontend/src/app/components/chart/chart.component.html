@@ -1,0 +1,14 @@
+<div class="chart-wrapper" #chartContainer></div>
+
+@if (tooltip(); as tt) {
+	<div
+		class="divergence-tooltip"
+		[class.bullish]="tt.type === 'bullish'"
+		[class.bearish]="tt.type === 'bearish'"
+		[style.left.px]="tt.x"
+		[style.top.px]="tt.y"
+	>
+		<div class="tooltip-title">{{ tt.title }}</div>
+		<div class="tooltip-body">{{ tt.body }}</div>
+	</div>
+}
