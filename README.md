@@ -4,6 +4,31 @@ Python library for market structure analysis — swings, trends, support/resista
 
 > **Status:** early development. API is unstable and the library is not yet published.
 
+## Backtest: market structure as a strategy filter
+
+To validate the library, we ran an A/B comparison using a TSI signal-line crossover
+strategy on 4h Binance futures (BTC, ETH, SOL, XRP, LTC) over 360 days in a **-14.91%
+market**. The only difference: the "With MS" variant filters entries and exits through
+the `ms_*` columns; the "Without" variant uses the same TSI signal and risk parameters
+but skips market structure entirely.
+
+| Metric | With MS filter | Without MS filter |
+|---|---|---|
+| Total profit | **+39.85%** | +22.59% |
+| Profit factor | **1.50** | 1.21 |
+| Sharpe | **0.94** | 0.58 |
+| Max drawdown | **17.76%** | 21.75% |
+| Trades | 164 | 208 |
+| Win rate | 36.0% | 31.7% |
+| Stop-loss hits | 36 | 46 |
+
+The filter blocked 44 low-quality entries (mostly would-be stop-outs), nearly doubling
+profit while cutting drawdown by ~4 percentage points. Full strategy source,
+backtest configs, and [results for all three strategies](refs/freqtrade/README.md) live
+in [`refs/freqtrade/`](refs/freqtrade/).
+
+> **Disclaimer:** This is educational software, not financial advice. Past backtest performance does not guarantee future results. Parameters are curve-fit to a specific historical window. Do not trade real capital based on these examples without independent validation and risk assessment.
+
 ## Documentation
 
 - [Freqtrade Column Reference](docs/freqtrade-columns.md) — all 30 `ms_*` columns projected onto the DataFrame, with dtypes, tier descriptions, and strategy examples.
