@@ -31,7 +31,7 @@ profit while cutting drawdown by ~4 percentage points. Backtest data and
 
 ## Documentation
 
-- [Freqtrade Column Reference](docs/freqtrade-columns.md) — all 30 `ms_*` columns projected onto the DataFrame, with dtypes, tier descriptions, and strategy examples.
+- [Freqtrade Column Reference](docs/freqtrade-columns.md) — all 63 `ms_*` columns projected onto the DataFrame, with dtypes, tier descriptions, and strategy examples.
 
 ## Install
 

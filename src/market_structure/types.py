@@ -91,6 +91,21 @@ class Zone:
 
 
 @dataclass(frozen=True, slots=True)
+class ZoneLifecycleState:
+    """Tracks a zone's lifecycle through break/retest/flip transitions.
+
+    Immutable — each state transition creates a new instance.
+    """
+
+    state: str  # "intact", "broken", "retested", "flipped", "failed_retest"
+    break_bar_index: int | None = None
+    retest_bar_indices: tuple[int, ...] = ()
+    retest_count: int = 0
+    flip_bar_index: int | None = None
+    failed_retest_bar_index: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class LongTermSwing:
     """Result of ``pick_long_term_top`` / ``pick_long_term_bottom``.
 
