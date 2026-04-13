@@ -1,0 +1,54 @@
+:host {
+	display: block;
+	width: 100%;
+	height: 100%;
+	position: relative;
+}
+
+.chart-wrapper {
+	width: 100%;
+	height: 100%;
+}
+
+.divergence-tooltip {
+	position: absolute;
+	pointer-events: none;
+	z-index: 10;
+	max-width: 280px;
+	padding: 10px 14px;
+	border-radius: 6px;
+	background: var(--bg-panel);
+	border: 1px solid var(--border);
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+	transform: translate(-50%, -100%);
+	margin-top: -16px;
+
+	&.bullish {
+		border-left: 3px solid var(--accent-green);
+	}
+
+	&.bearish {
+		border-left: 3px solid var(--accent-red);
+	}
+
+	.tooltip-title {
+		font-size: 12px;
+		font-weight: 600;
+		margin-bottom: 4px;
+		letter-spacing: 0.3px;
+	}
+
+	.bullish & .tooltip-title {
+		color: var(--accent-green);
+	}
+
+	.bearish & .tooltip-title {
+		color: var(--accent-red);
+	}
+
+	.tooltip-body {
+		font-size: 11px;
+		line-height: 1.5;
+		color: var(--text-secondary);
+	}
+}

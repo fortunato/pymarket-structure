@@ -1,0 +1,172 @@
+<aside class="panel">
+	@if (bar(); as b) {
+		<div class="timestamp">{{ formattedTime() }}</div>
+
+		<section class="section">
+			<h3>OHLCV</h3>
+			<div class="row">
+				<span class="label">O</span>
+				<span class="value">{{ b.open | number: '1.2-2' }}</span>
+			</div>
+			<div class="row">
+				<span class="label">H</span>
+				<span class="value">{{ b.high | number: '1.2-2' }}</span>
+			</div>
+			<div class="row">
+				<span class="label">L</span>
+				<span class="value">{{ b.low | number: '1.2-2' }}</span>
+			</div>
+			<div class="row">
+				<span class="label">C</span>
+				<span class="value">{{ b.close | number: '1.2-2' }}</span>
+			</div>
+		</section>
+
+		<section class="section">
+			<h3>Wave</h3>
+			<div class="row">
+				<span class="label">Side</span>
+				<span
+					class="value"
+					[class.up]="b.ms_wave_side === 'up'"
+					[class.down]="b.ms_wave_side === 'down'"
+				>
+					{{ b.ms_wave_side }}
+				</span>
+			</div>
+			<div class="row">
+				<span class="label">ID</span>
+				<span class="value mono">{{ b.ms_wave_id }}</span>
+			</div>
+			@if (b.ms_wave_count !== null) {
+				<div class="row">
+					<span class="label">Count</span>
+					<span class="value">{{ b.ms_wave_count }}</span>
+				</div>
+			}
+			@if (b.ms_wave_length !== null) {
+				<div class="row">
+					<span class="label">Length</span>
+					<span class="value">{{ b.ms_wave_length }}</span>
+				</div>
+			}
+		</section>
+
+		<section class="section">
+			<h3>Structure</h3>
+			<div class="structure-grid">
+				@if (b.ms_made_higher_high) {
+					<span class="badge up">HH</span>
+				}
+				@if (b.ms_made_higher_low) {
+					<span class="badge up">HL</span>
+				}
+				@if (b.ms_made_lower_high) {
+					<span class="badge down">LH</span>
+				}
+				@if (b.ms_made_lower_low) {
+					<span class="badge down">LL</span>
+				}
+			</div>
+			<div class="row">
+				<span class="label">Trending</span>
+				<span class="value">
+					@if (b.ms_is_trending_up) {
+						<span class="up">UP</span>
+					} @else if (b.ms_is_trending_down) {
+						<span class="down">DOWN</span>
+					} @else {
+						<span class="neutral">--</span>
+					}
+				</span>
+			</div>
+		</section>
+
+		@if (b.ms_support_zone_low !== null) {
+			<section class="section zone-support">
+				<h3>Support Zone</h3>
+				<div class="row">
+					<span class="label">Range</span>
+					<span class="value mono">
+						{{ b.ms_support_zone_low | number: '1.2-2' }} -
+						{{ b.ms_support_zone_high | number: '1.2-2' }}
+					</span>
+				</div>
+				@if (b.ms_support_is_double) {
+					<span class="badge double">Double Bottom</span>
+				}
+				@if (b.ms_support_overlap_count) {
+					<div class="row">
+						<span class="label">Overlaps</span>
+						<span class="value">{{ b.ms_support_overlap_count }}</span>
+					</div>
+				}
+			</section>
+		}
+
+		@if (b.ms_resistance_zone_low !== null) {
+			<section class="section zone-resistance">
+				<h3>Resistance Zone</h3>
+				<div class="row">
+					<span class="label">Range</span>
+					<span class="value mono">
+						{{ b.ms_resistance_zone_low | number: '1.2-2' }} -
+						{{ b.ms_resistance_zone_high | number: '1.2-2' }}
+					</span>
+				</div>
+				@if (b.ms_resistance_is_double) {
+					<span class="badge double">Double Top</span>
+				}
+				@if (b.ms_resistance_overlap_count) {
+					<div class="row">
+						<span class="label">Overlaps</span>
+						<span class="value">{{ b.ms_resistance_overlap_count }}</span>
+					</div>
+				}
+			</section>
+		}
+
+		@if (b.ms_bearish_divergence || b.ms_bullish_divergence) {
+			<section class="section divergence">
+				<h3>Divergence</h3>
+				@if (b.ms_bullish_divergence) {
+					<span class="badge up">Bullish</span>
+					<p class="insight">
+						Selling pressure fading into lower lows. TSI histogram trough was shallower
+						&mdash; momentum decelerating. Watch for wave flip and histogram crossing
+						above zero.
+					</p>
+				}
+				@if (b.ms_bearish_divergence) {
+					<span class="badge down">Bearish</span>
+					<p class="insight">
+						Momentum weakening into higher highs. TSI histogram peaked lower &mdash;
+						buying pressure decelerating. Watch for wave flip and histogram crossing
+						below zero.
+					</p>
+				}
+			</section>
+		}
+
+		@if (b.ms_pullback_correction_factor !== null) {
+			<section class="section">
+				<h3>Pullback</h3>
+				<div class="row">
+					<span class="label">Correction</span>
+					<span class="value"
+						>{{ b.ms_pullback_correction_factor | number: '1.1-2' }}x</span
+					>
+				</div>
+				<div class="row">
+					<span class="label">Length</span>
+					<span class="value">{{ b.ms_pullback_length }} bars</span>
+				</div>
+			</section>
+		}
+	} @else {
+		<div class="empty">
+			<span class="empty-icon">+</span>
+			<span>Hover over a candle</span>
+		</div>
+	}
+</aside>
