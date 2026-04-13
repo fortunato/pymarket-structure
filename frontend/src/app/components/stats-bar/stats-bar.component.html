@@ -1,0 +1,77 @@
+@if (hasTrades()) {
+	<div class="stats-bar">
+		<div class="stat" title="Total number of closed trades (Long / Short breakdown)">
+			<span class="stat-label">Trades</span>
+			<span class="stat-value">
+				{{ stats().totalTrades }}
+				<span class="stat-detail"
+					>({{ stats().longCount }}L / {{ stats().shortCount }}S)</span
+				>
+			</span>
+		</div>
+
+		<div class="stat" title="Percentage of trades that closed in profit. Above 50% means more winners than losers.">
+			<span class="stat-label">Win Rate</span>
+			<span
+				class="stat-value"
+				[class.up]="stats().winRate >= 50"
+				[class.down]="stats().winRate < 50"
+			>
+				{{ stats().winRate | number: '1.1-1' }}%
+			</span>
+		</div>
+
+		<div class="stat" title="Profit Factor — ratio of gross wins to gross losses. Above 1.0 means the strategy is profitable overall.">
+			<span class="stat-label">PF</span>
+			<span
+				class="stat-value"
+				[class.up]="stats().profitFactor > 1"
+				[class.down]="stats().profitFactor < 1"
+			>
+				{{ stats().profitFactor | number: '1.2-2' }}
+			</span>
+		</div>
+
+		<div class="stat" title="Total profit and loss across all trades in the quote currency.">
+			<span class="stat-label">P&L</span>
+			<span
+				class="stat-value"
+				[class.up]="stats().totalPnl > 0"
+				[class.down]="stats().totalPnl < 0"
+			>
+				{{ stats().totalPnl >= 0 ? '+' : '' }}{{ stats().totalPnl | number: '1.2-2' }}
+			</span>
+		</div>
+
+		<div class="stat" title="Maximum Drawdown — largest peak-to-trough decline on the equity curve. Lower is better.">
+			<span class="stat-label">Max DD</span>
+			<span class="stat-value down">{{ stats().maxDrawdown | number: '1.1-1' }}%</span>
+		</div>
+
+		<div class="stat" title="Average profit percentage of winning trades.">
+			<span class="stat-label">Avg Win</span>
+			<span class="stat-value up">+{{ stats().avgWinPct | number: '1.2-2' }}%</span>
+		</div>
+
+		<div class="stat" title="Average loss percentage of losing trades.">
+			<span class="stat-label">Avg Loss</span>
+			<span class="stat-value down">{{ stats().avgLossPct | number: '1.2-2' }}%</span>
+		</div>
+
+		<div class="stat" title="Average time a trade was open, from entry to exit.">
+			<span class="stat-label">Avg Duration</span>
+			<span class="stat-value">{{ formattedDuration() }}</span>
+		</div>
+
+		<div class="stat" title="Expectancy — average expected return per trade. Combines win rate with average win/loss size. Positive means the strategy has an edge.">
+			<span class="stat-label">Expectancy</span>
+			<span
+				class="stat-value"
+				[class.up]="stats().expectancy > 0"
+				[class.down]="stats().expectancy < 0"
+			>
+				{{ stats().expectancy >= 0 ? '+' : '' }}{{ stats().expectancy | number: '1.2-2' }}%
+			</span>
+		</div>
+	</div>
+}

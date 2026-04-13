@@ -1,5 +1,9 @@
 <div class="chart-wrapper" #chartContainer></div>
 
+@if (tradeTooltip(); as ttt) {
+	<app-trade-tooltip [trade]="ttt.trade" [x]="ttt.x" [y]="ttt.y" [pinned]="ttt.pinned" />
+}
+
 @if (tooltip(); as tt) {
 	<div
 		class="divergence-tooltip"

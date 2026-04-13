@@ -1,0 +1,29 @@
+<div class="selector-row">
+	<div class="select-group">
+		<label for="pair-select">Pair</label>
+		<select
+			id="pair-select"
+			[value]="chartState.selectedPair()"
+			(change)="onPairChange($event)"
+		>
+			@for (pair of pairs; track pair) {
+				<option [value]="pair">{{ pair }}</option>
+			}
+		</select>
+	</div>
+
+	<div class="select-group">
+		<label for="strategy-select">Strategy</label>
+		<select
+			id="strategy-select"
+			[value]="chartState.selectedStrategy()"
+			(change)="onStrategyChange($event)"
+		>
+			@for (strategy of strategies; track strategy) {
+				<option [value]="strategy">{{ strategyLabels[strategy] }}</option>
+			}
+		</select>
+	</div>
+
+	<span class="timeframe-badge">4h</span>
+</div>
