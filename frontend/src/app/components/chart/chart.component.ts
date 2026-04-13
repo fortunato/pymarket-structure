@@ -27,7 +27,9 @@ import {
 } from 'lightweight-charts';
 
 import { EnrichedBar } from '../../models/candle-bar.model';
+import { Trade } from '../../models/trade.model';
 import { MarketDataService } from '../../services/market-data.service';
+import { TradeDataService } from '../../services/trade-data.service';
 
 interface DivergenceTooltip {
 	x: number;
@@ -35,6 +37,13 @@ interface DivergenceTooltip {
 	type: 'bullish' | 'bearish';
 	title: string;
 	body: string;
+}
+
+export interface TradeTooltipState {
+	trade: Trade;
+	x: number;
+	y: number;
+	pinned: boolean;
 }
 
 const DIVERGENCE_TEXT = {
@@ -50,19 +59,24 @@ const DIVERGENCE_TEXT = {
 import { ChartStateService } from '../../services/chart-state.service';
 import { ZoneRectanglePrimitive } from '../../plugins/zone-rectangle.primitive';
 import { TrendBackgroundPrimitive } from '../../plugins/trend-background.primitive';
+import { TradeRectanglePrimitive } from '../../plugins/trade-rectangle.primitive';
+import { TradeTooltipComponent } from '../trade-tooltip/trade-tooltip.component';
 
 @Component({
 	selector: 'app-chart',
+	imports: [TradeTooltipComponent],
 	templateUrl: './chart.component.html',
 	styleUrl: './chart.component.scss',
 	changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ChartComponent implements AfterViewInit, OnDestroy {
 	private readonly marketData = inject(MarketDataService);
+	private readonly tradeData = inject(TradeDataService);
 	private readonly chartState = inject(ChartStateService);
 
 	readonly chartContainer = viewChild.required<ElementRef<HTMLDivElement>>('chartContainer');
 	readonly tooltip = signal<DivergenceTooltip | null>(null);
+	readonly tradeTooltip = signal<TradeTooltipState | null>(null);
 
 	private chart!: IChartApi;
 	private candleSeries!: ISeriesApi<'Candlestick'>;
@@ -75,6 +89,7 @@ export class ChartComponent implements AfterViewInit, OnDestroy {
 	private supportZonePrimitive = new ZoneRectanglePrimitive();
 	private resistanceZonePrimitive = new ZoneRectanglePrimitive();
 	private trendBackgroundPrimitive = new TrendBackgroundPrimitive();
+	private tradeRectanglePrimitive = new TradeRectanglePrimitive();
 
 	// Markers plugin
 	private markersPlugin!: ISeriesMarkersPluginApi<Time>;
@@ -82,11 +97,13 @@ export class ChartComponent implements AfterViewInit, OnDestroy {
 	// Price lines (managed manually)
 	private topPriceLine: IPriceLine | null = null;
 	private bottomPriceLine: IPriceLine | null = null;
+	private pinnedOpenLine: IPriceLine | null = null;
+	private pinnedCloseLine: IPriceLine | null = null;
 
 	private resizeObserver!: ResizeObserver;
 
 	constructor() {
-		// Reactive overlay management
+		// Data update effect
 		effect(() => {
 			const bars = this.marketData.bars();
 			if (bars.length === 0 || !this.chart) return;
@@ -94,8 +111,16 @@ export class ChartComponent implements AfterViewInit, OnDestroy {
 			this.setCandlestickData(bars);
 			this.setVolumeData(bars);
 			this.setTsiData(bars);
+
+			// Clear state on pair switch
+			this.chartState.activeBar.set(null);
+			this.chartState.hoveredTrade.set(null);
+			this.chartState.pinnedTrade.set(null);
+			this.tradeTooltip.set(null);
+			this.clearPinnedTradeLines();
 		});
 
+		// Overlay update effect
 		effect(() => {
 			const overlays = this.chartState.overlays();
 			const bars = this.marketData.bars();
@@ -156,12 +181,50 @@ export class ChartComponent implements AfterViewInit, OnDestroy {
 			this.updatePriceLines(overlays.priceLines ? this.chartState.activeBar() : null);
 		});
 
+		// Trade overlay effect
+		effect(() => {
+			const overlays = this.chartState.overlays();
+			const trades = this.tradeData.trades();
+			if (!this.chart) return;
+
+			if (overlays.trades) {
+				this.tradeRectanglePrimitive.setData(trades);
+			} else {
+				this.tradeRectanglePrimitive.setData([]);
+			}
+		});
+
 		// Update price lines on active bar change
 		effect(() => {
 			const bar = this.chartState.activeBar();
 			const overlays = this.chartState.overlays();
 			if (!this.chart || !overlays.priceLines) return;
 			this.updatePriceLines(bar);
+		});
+
+		// Pinned trade price lines
+		effect(() => {
+			const pinned = this.chartState.pinnedTrade();
+			if (!this.chart) return;
+			this.clearPinnedTradeLines();
+			if (pinned) {
+				this.pinnedOpenLine = this.candleSeries.createPriceLine({
+					price: pinned.open_rate,
+					color: 'rgba(66, 165, 245, 0.7)',
+					lineWidth: 1,
+					lineStyle: LineStyle.Dashed,
+					axisLabelVisible: true,
+					title: 'Entry',
+				});
+				this.pinnedCloseLine = this.candleSeries.createPriceLine({
+					price: pinned.close_rate,
+					color: 'rgba(66, 165, 245, 0.7)',
+					lineWidth: 1,
+					lineStyle: LineStyle.Dashed,
+					axisLabelVisible: true,
+					title: 'Exit',
+				});
+			}
 		});
 	}
 
@@ -260,18 +323,87 @@ export class ChartComponent implements AfterViewInit, OnDestroy {
 		this.candleSeries.attachPrimitive(this.supportZonePrimitive);
 		this.candleSeries.attachPrimitive(this.resistanceZonePrimitive);
 		this.candleSeries.attachPrimitive(this.trendBackgroundPrimitive);
+		this.candleSeries.attachPrimitive(this.tradeRectanglePrimitive);
 
-		// Crosshair handler
+		// Crosshair handler — active bar + trade hover detection
 		this.chart.subscribeCrosshairMove((param) => {
 			if (!param.time) {
 				this.chartState.activeBar.set(null);
 				this.tooltip.set(null);
+				// Don't clear hovered trade here — let mouse detection handle it
+				if (!this.chartState.pinnedTrade()) {
+					this.chartState.hoveredTrade.set(null);
+					this.tradeRectanglePrimitive.setHoveredIndex(null);
+					this.tradeTooltip.set(null);
+				}
 				return;
 			}
 			const bars = this.marketData.bars();
 			const bar = bars.find((b) => b.time === param.time);
 			this.chartState.activeBar.set(bar ?? null);
 			this.updateDivergenceTooltip(bar ?? null, param);
+
+			// Trade hit testing
+			if (param.point && this.chartState.overlays().trades) {
+				const hit = this.tradeRectanglePrimitive.findTradeAtCoordinate(
+					param.point.x,
+					param.point.y,
+				);
+				if (hit) {
+					this.chartState.hoveredTrade.set(hit.trade);
+					this.tradeRectanglePrimitive.setHoveredIndex(hit.index);
+					if (!this.chartState.pinnedTrade()) {
+						this.tradeTooltip.set({
+							trade: hit.trade,
+							x: param.point.x,
+							y: param.point.y,
+							pinned: false,
+						});
+					}
+				} else {
+					this.chartState.hoveredTrade.set(null);
+					this.tradeRectanglePrimitive.setHoveredIndex(null);
+					if (!this.chartState.pinnedTrade()) {
+						this.tradeTooltip.set(null);
+					}
+				}
+			}
+		});
+
+		// Click handler — pin/unpin trades
+		this.chart.subscribeClick((param) => {
+			if (!param.point || !this.chartState.overlays().trades) return;
+
+			const hit = this.tradeRectanglePrimitive.findTradeAtCoordinate(
+				param.point.x,
+				param.point.y,
+			);
+
+			const currentPinned = this.chartState.pinnedTrade();
+
+			if (hit) {
+				// Toggle: unpin if same trade, otherwise pin new trade
+				if (
+					currentPinned &&
+					currentPinned.open_time === hit.trade.open_time &&
+					currentPinned.close_time === hit.trade.close_time
+				) {
+					this.chartState.pinnedTrade.set(null);
+					this.tradeTooltip.set(null);
+				} else {
+					this.chartState.pinnedTrade.set(hit.trade);
+					this.tradeTooltip.set({
+						trade: hit.trade,
+						x: param.point.x,
+						y: param.point.y,
+						pinned: true,
+					});
+				}
+			} else if (currentPinned) {
+				// Click outside any trade → unpin
+				this.chartState.pinnedTrade.set(null);
+				this.tradeTooltip.set(null);
+			}
 		});
 
 		// Responsive resize
@@ -309,7 +441,6 @@ export class ChartComponent implements AfterViewInit, OnDestroy {
 	}
 
 	private setTsiData(bars: EnrichedBar[]): void {
-		// Histogram bars colored by sign (green positive, red negative)
 		this.tsiHistSeries.setData(
 			bars.map((b) => ({
 				time: b.time as unknown as Time,
@@ -318,7 +449,6 @@ export class ChartComponent implements AfterViewInit, OnDestroy {
 			})),
 		);
 
-		// TSI line
 		this.tsiLineSeries.setData(
 			bars.map((b) => ({
 				time: b.time as unknown as Time,
@@ -326,7 +456,6 @@ export class ChartComponent implements AfterViewInit, OnDestroy {
 			})),
 		);
 
-		// TSI signal line
 		this.tsiSignalSeries.setData(
 			bars.map((b) => ({
 				time: b.time as unknown as Time,
@@ -355,7 +484,6 @@ export class ChartComponent implements AfterViewInit, OnDestroy {
 	}
 
 	private updatePriceLines(bar: EnrichedBar | null): void {
-		// Remove existing
 		if (this.topPriceLine) {
 			this.candleSeries.removePriceLine(this.topPriceLine);
 			this.topPriceLine = null;
@@ -387,6 +515,17 @@ export class ChartComponent implements AfterViewInit, OnDestroy {
 				axisLabelVisible: true,
 				title: 'Last Bottom',
 			});
+		}
+	}
+
+	private clearPinnedTradeLines(): void {
+		if (this.pinnedOpenLine) {
+			this.candleSeries.removePriceLine(this.pinnedOpenLine);
+			this.pinnedOpenLine = null;
+		}
+		if (this.pinnedCloseLine) {
+			this.candleSeries.removePriceLine(this.pinnedCloseLine);
+			this.pinnedCloseLine = null;
 		}
 	}
 }

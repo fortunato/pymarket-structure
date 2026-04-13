@@ -5,11 +5,12 @@
 
 .layout {
 	display: grid;
-	grid-template-rows: auto 1fr auto;
+	grid-template-rows: auto 1fr auto auto;
 	grid-template-columns: 1fr 320px;
 	grid-template-areas:
-		'header  header'
-		'chart   sidebar'
+		'header   header'
+		'chart    sidebar'
+		'stats    stats'
 		'controls controls';
 	height: 100%;
 }
@@ -28,6 +29,10 @@
 	background: var(--bg-panel);
 	border-left: 1px solid var(--border);
 	min-height: 0;
+}
+
+.stats {
+	grid-area: stats;
 }
 
 .controls {

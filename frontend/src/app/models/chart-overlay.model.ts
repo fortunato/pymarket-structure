@@ -5,6 +5,7 @@ export interface OverlayState {
 	trendBackground: boolean;
 	priceLines: boolean;
 	divergenceMarkers: boolean;
+	trades: boolean;
 }
 
 export interface ZoneSpan {
@@ -41,4 +42,5 @@ export const OVERLAY_LABELS: Record<keyof OverlayState, string> = {
 	trendBackground: 'Trend Background',
 	priceLines: 'Price Lines',
 	divergenceMarkers: 'Divergence',
+	trades: 'Trades',
 };
