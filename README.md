@@ -23,9 +23,9 @@ but skips market structure entirely.
 | Stop-loss hits | 36 | 46 |
 
 The filter blocked 44 low-quality entries (mostly would-be stop-outs), nearly doubling
-profit while cutting drawdown by ~4 percentage points. Full strategy source,
-backtest configs, and [results for all three strategies](refs/freqtrade/README.md) live
-in [`refs/freqtrade/`](refs/freqtrade/).
+profit while cutting drawdown by ~4 percentage points. Backtest data and
+[results for all three strategies](refs/freqtrade/README.md) live in
+[`refs/freqtrade/`](refs/freqtrade/).
 
 > **Disclaimer:** This is educational software, not financial advice. Past backtest performance does not guarantee future results. Parameters are curve-fit to a specific historical window. Do not trade real capital based on these examples without independent validation and risk assessment.
 
