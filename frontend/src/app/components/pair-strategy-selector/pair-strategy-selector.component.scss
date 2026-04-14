@@ -5,7 +5,8 @@
 .selector-row {
 	display: flex;
 	align-items: center;
-	gap: 1rem;
+	flex-wrap: wrap;
+	gap: 0.5rem 1rem;
 }
 
 .select-group {
