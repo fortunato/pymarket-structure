@@ -17,6 +17,9 @@ export class ChartStateService {
 		priceLines: true,
 		divergenceMarkers: true,
 		trades: true,
+		zoneLifecycle: false,
+		structureBreak: false,
+		patterns: false,
 	});
 
 	readonly activeBar = signal<EnrichedBar | null>(null);

@@ -60,6 +60,7 @@ import { ChartStateService } from '../../services/chart-state.service';
 import { ZoneRectanglePrimitive } from '../../plugins/zone-rectangle.primitive';
 import { TrendBackgroundPrimitive } from '../../plugins/trend-background.primitive';
 import { TradeRectanglePrimitive } from '../../plugins/trade-rectangle.primitive';
+import { StructureBreakPrimitive } from '../../plugins/structure-break.primitive';
 import { TradeTooltipComponent } from '../trade-tooltip/trade-tooltip.component';
 
 @Component({
@@ -90,6 +91,7 @@ export class ChartComponent implements AfterViewInit, OnDestroy {
 	private resistanceZonePrimitive = new ZoneRectanglePrimitive();
 	private trendBackgroundPrimitive = new TrendBackgroundPrimitive();
 	private tradeRectanglePrimitive = new TradeRectanglePrimitive();
+	private structureBreakPrimitive = new StructureBreakPrimitive();
 
 	// Markers plugin
 	private markersPlugin!: ISeriesMarkersPluginApi<Time>;
@@ -147,7 +149,14 @@ export class ChartComponent implements AfterViewInit, OnDestroy {
 				this.trendBackgroundPrimitive.setData([]);
 			}
 
-			// Wave transition markers + divergence markers (merged into one array)
+			// Structure break level primitive
+			if (overlays.structureBreak) {
+				this.structureBreakPrimitive.setData(this.marketData.structureBreakSpans());
+			} else {
+				this.structureBreakPrimitive.setData([]);
+			}
+
+			// All markers merged into one array (sorted by time)
 			const markers: SeriesMarker<Time>[] = [];
 
 			if (overlays.waveTransitions) {
@@ -171,6 +180,111 @@ export class ChartComponent implements AfterViewInit, OnDestroy {
 						shape: 'square',
 						text: d.type === 'bullish' ? 'Bull Div' : 'Bear Div',
 					});
+				}
+			}
+
+			// Zone lifecycle event markers
+			if (overlays.zoneLifecycle) {
+				for (const e of this.marketData.lifecycleEvents()) {
+					const isSup = e.zoneSide === 'support';
+					const pos = isSup ? 'belowBar' : 'aboveBar';
+					switch (e.eventType) {
+						case 'break':
+							markers.push({
+								time: e.time as unknown as Time,
+								position: pos,
+								color: isSup ? '#e74c3c' : '#2ecc71',
+								shape: isSup ? 'arrowDown' : 'arrowUp',
+								text: 'ZB',
+							});
+							break;
+						case 'retest':
+							markers.push({
+								time: e.time as unknown as Time,
+								position: pos,
+								color: '#f39c12',
+								shape: 'circle',
+								text: 'RT',
+							});
+							break;
+						case 'flip':
+							markers.push({
+								time: e.time as unknown as Time,
+								position: pos,
+								color: '#9b59b6',
+								shape: 'square',
+								text: 'FL',
+							});
+							break;
+						case 'failed_retest':
+							markers.push({
+								time: e.time as unknown as Time,
+								position: pos,
+								color: '#95a5a6',
+								shape: 'circle',
+								text: 'FR',
+							});
+							break;
+					}
+				}
+			}
+
+			// Structure break confirmed markers
+			if (overlays.structureBreak) {
+				for (const bar of bars) {
+					if (bar.ms_structure_break_confirmed) {
+						markers.push({
+							time: bar.time as unknown as Time,
+							position: 'inBar',
+							color: '#e67e22',
+							shape: bar.ms_is_trending_up ? 'arrowDown' : 'arrowUp',
+							text: 'SB',
+						});
+					}
+				}
+			}
+
+			// SFP and three-push pattern markers
+			if (overlays.patterns) {
+				for (const p of this.marketData.patternMarkers()) {
+					switch (p.patternType) {
+						case 'sfp_high':
+							markers.push({
+								time: p.time as unknown as Time,
+								position: 'aboveBar',
+								color: '#e74c3c',
+								shape: 'square',
+								text: 'SFP',
+							});
+							break;
+						case 'sfp_low':
+							markers.push({
+								time: p.time as unknown as Time,
+								position: 'belowBar',
+								color: '#2ecc71',
+								shape: 'square',
+								text: 'SFP',
+							});
+							break;
+						case 'three_push_up':
+							markers.push({
+								time: p.time as unknown as Time,
+								position: 'aboveBar',
+								color: '#e74c3c',
+								shape: 'arrowDown',
+								text: '3P',
+							});
+							break;
+						case 'three_push_down':
+							markers.push({
+								time: p.time as unknown as Time,
+								position: 'belowBar',
+								color: '#2ecc71',
+								shape: 'arrowUp',
+								text: '3P',
+							});
+							break;
+					}
 				}
 			}
 
@@ -324,11 +438,13 @@ export class ChartComponent implements AfterViewInit, OnDestroy {
 		this.candleSeries.attachPrimitive(this.resistanceZonePrimitive);
 		this.candleSeries.attachPrimitive(this.trendBackgroundPrimitive);
 		this.candleSeries.attachPrimitive(this.tradeRectanglePrimitive);
+		this.candleSeries.attachPrimitive(this.structureBreakPrimitive);
 
 		// Crosshair handler — active bar + trade hover detection
+		// When cursor leaves the chart, keep the last bar sticky so the info panel
+		// remains interactive (collapsible sections can be clicked).
 		this.chart.subscribeCrosshairMove((param) => {
 			if (!param.time) {
-				this.chartState.activeBar.set(null);
 				this.tooltip.set(null);
 				// Don't clear hovered trade here — let mouse detection handle it
 				if (!this.chartState.pinnedTrade()) {

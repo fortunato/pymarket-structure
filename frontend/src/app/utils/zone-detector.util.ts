@@ -1,6 +1,9 @@
 import { EnrichedBar } from '../models/candle-bar.model';
 import {
 	DivergenceMarker,
+	LifecycleEvent,
+	PatternMarker,
+	StructureBreakSpan,
 	TrendSpan,
 	WaveTransition,
 	ZoneSpan,
@@ -132,4 +135,82 @@ export function detectTrendSpans(bars: EnrichedBar[]): TrendSpan[] {
 	}
 
 	return spans;
+}
+
+/**
+ * Detect bars where zone lifecycle events fire (break, retest, flip, failed_retest).
+ */
+export function detectLifecycleEvents(bars: EnrichedBar[]): LifecycleEvent[] {
+	const events: LifecycleEvent[] = [];
+	const sides = ['support', 'resistance'] as const;
+	const types = ['break', 'retest', 'flip', 'failed_retest'] as const;
+
+	for (const bar of bars) {
+		for (const side of sides) {
+			for (const eventType of types) {
+				const key = `ms_zone_${eventType}_${side}` as keyof EnrichedBar;
+				if (bar[key] === true) {
+					events.push({ time: bar.time, eventType, zoneSide: side });
+				}
+			}
+		}
+	}
+	return events;
+}
+
+/**
+ * Detect contiguous spans of the same structure_break_level.
+ */
+export function detectStructureBreakSpans(bars: EnrichedBar[]): StructureBreakSpan[] {
+	const spans: StructureBreakSpan[] = [];
+	let currentLevel: number | null = null;
+	let startTime = 0;
+	let isUptrend = false;
+
+	for (const bar of bars) {
+		const level = bar.ms_structure_break_level;
+		if (level !== currentLevel) {
+			if (currentLevel !== null) {
+				spans.push({ startTime, endTime: bar.time, level: currentLevel, isUptrend });
+			}
+			currentLevel = level;
+			if (level !== null) {
+				startTime = bar.time;
+				isUptrend = bar.ms_is_trending_up;
+			}
+		}
+	}
+
+	if (currentLevel !== null && bars.length > 0) {
+		spans.push({
+			startTime,
+			endTime: bars[bars.length - 1].time,
+			level: currentLevel,
+			isUptrend,
+		});
+	}
+
+	return spans;
+}
+
+/**
+ * Detect bars where SFP or three-push patterns are active.
+ */
+export function detectPatternMarkers(bars: EnrichedBar[]): PatternMarker[] {
+	const markers: PatternMarker[] = [];
+	const patternKeys = [
+		['ms_sfp_high', 'sfp_high'],
+		['ms_sfp_low', 'sfp_low'],
+		['ms_three_push_up', 'three_push_up'],
+		['ms_three_push_down', 'three_push_down'],
+	] as const;
+
+	for (const bar of bars) {
+		for (const [key, patternType] of patternKeys) {
+			if (bar[key] === true) {
+				markers.push({ time: bar.time, patternType });
+			}
+		}
+	}
+	return markers;
 }

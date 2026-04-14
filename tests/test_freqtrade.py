@@ -94,6 +94,16 @@ def _build_reference(raw: list[dict[str, object]]) -> pd.DataFrame:
     closes_arr = np.array([float(r["close"]) for r in raw])  # type: ignore[arg-type]
     atr_arr = _compute_atr(highs_arr, lows_arr, closes_arr, period=14)
 
+    # Edge-detection state for event columns.
+    prev_sfp_h = False
+    prev_sfp_l = False
+    prev_sbc = False
+    prev_ltp = np.nan
+    prev_lbp = np.nan
+    prev_sbl_val = np.nan
+    prev_three_up = False
+    prev_three_down = False
+
     for bar_idx, row in enumerate(raw):
         h.register_candle(_make_candle(row))
 
@@ -321,6 +331,12 @@ def _build_reference(raw: list[dict[str, object]]) -> pd.DataFrame:
             if ba3 < ba2 < ba1 and lv3 < lv2 < lv1 and (lv2 - lv3) < (lv1 - lv2):
                 three_down = True
 
+        # three_push — edge-detected: fire only on the first bar of each True span.
+        three_up_edge = three_up and not prev_three_up
+        three_down_edge = three_down and not prev_three_down
+        prev_three_up = three_up
+        prev_three_down = three_down
+
         records[-1].update(
             {
                 "zone_quality_support": zq_s,
@@ -330,8 +346,8 @@ def _build_reference(raw: list[dict[str, object]]) -> pd.DataFrame:
                 "wave_volume_ratio": wave_vol_ratio,
                 "wave_amplitude_ratio": wave_amp_ratio,
                 "trend_wave_count": twc,
-                "three_push_up": three_up,
-                "three_push_down": three_down,
+                "three_push_up": three_up_edge,
+                "three_push_down": three_down_edge,
             }
         )
 
@@ -379,25 +395,44 @@ def _build_reference(raw: list[dict[str, object]]) -> pd.DataFrame:
         if rz and not np.isnan(atr_val) and atr_val > 0:
             dist_r = (rz.range[0] - close_val) / atr_val
 
-        # sfp_high/low
+        # sfp_high/low — edge-detected: fire only on first bar of each cluster,
+        # or when the reference level changes.
         high_val = float(row["high"])  # type: ignore[arg-type]
         low_val = float(row["low"])  # type: ignore[arg-type]
-        sfp_h = False
-        sfp_l = False
+        sfp_h_raw = False
+        sfp_l_raw = False
+        cur_ltp = np.nan
+        cur_lbp = np.nan
         if last_top:
-            ltp = max(last_top.highest_close_or_open.close, last_top.highest_close_or_open.open)
-            sfp_h = high_val > ltp and close_val < ltp
+            cur_ltp = max(last_top.highest_close_or_open.close, last_top.highest_close_or_open.open)
+            sfp_h_raw = high_val > cur_ltp and close_val < cur_ltp
         if last_bottom:
-            lbp = min(last_bottom.lowest_close_or_open.close, last_bottom.lowest_close_or_open.open)
-            sfp_l = low_val < lbp and close_val > lbp
+            cur_lbp = min(
+                last_bottom.lowest_close_or_open.close, last_bottom.lowest_close_or_open.open
+            )
+            sfp_l_raw = low_val < cur_lbp and close_val > cur_lbp
 
-        # structure_break_confirmed
-        sbc = False
+        ltp_changed = cur_ltp != prev_ltp and not (np.isnan(cur_ltp) and np.isnan(prev_ltp))
+        lbp_changed = cur_lbp != prev_lbp and not (np.isnan(cur_lbp) and np.isnan(prev_lbp))
+        sfp_h = sfp_h_raw and (not prev_sfp_h or ltp_changed)
+        sfp_l = sfp_l_raw and (not prev_sfp_l or lbp_changed)
+        prev_sfp_h = sfp_h_raw
+        prev_sfp_l = sfp_l_raw
+        prev_ltp = cur_ltp
+        prev_lbp = cur_lbp
+
+        # structure_break_confirmed — edge-detected
+        sbc_raw = False
         if not np.isnan(sbl):
             is_up = last_top and last_bottom and prev_top and prev_bottom and hh and hl  # type: ignore[possibly-undefined]
             is_down = last_top and last_bottom and prev_top and prev_bottom and lh and ll  # type: ignore[possibly-undefined]
             if (is_up and close_val < sbl) or (is_down and close_val > sbl):
-                sbc = True
+                sbc_raw = True
+
+        sbl_changed = sbl != prev_sbl_val and not (np.isnan(sbl) and np.isnan(prev_sbl_val))
+        sbc = sbc_raw and (not prev_sbc or sbl_changed)
+        prev_sbc = sbc_raw
+        prev_sbl_val = sbl
 
         records[-1].update(
             {
