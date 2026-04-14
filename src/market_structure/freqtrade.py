@@ -128,6 +128,29 @@ def _validate_columns(columns: tuple[str, ...] | None) -> tuple[str, ...]:
 
 
 # ------------------------------------------------------------------
+# Edge detection — convert sustained-True arrays into rising-edge-only
+# ------------------------------------------------------------------
+
+
+def _edge_detect(arr: np.ndarray) -> np.ndarray:
+    """Return True only on the first bar of each contiguous True run."""
+    result = np.zeros_like(arr, dtype=bool)
+    result[0] = arr[0]
+    result[1:] = arr[1:] & ~arr[:-1]
+    return result
+
+
+def _edge_detect_with_level(arr: np.ndarray, level: np.ndarray) -> np.ndarray:
+    """Edge-detect but also re-fire when the reference *level* changes."""
+    result = np.zeros_like(arr, dtype=bool)
+    result[0] = arr[0]
+    level_changed = np.zeros(len(arr), dtype=bool)
+    level_changed[1:] = level[1:] != level[:-1]
+    result[1:] = arr[1:] & (~arr[:-1] | level_changed[1:])
+    return result
+
+
+# ------------------------------------------------------------------
 # Value extractors (mirror helper._hco_value / _lco_value)
 # ------------------------------------------------------------------
 
@@ -650,20 +673,20 @@ def _project_backtest(
     if "sfp_high" in col_set or "sfp_low" in col_set:
         # SFP high: wick exceeds last top HCO but close rejects below it.
         # SFP low: wick drops below last bottom LCO but close rejects above it.
-        # No recency filter is applied — SFP fires against any prior swing
-        # regardless of age.  Strategies should combine with
-        # bars_since_last_top / bars_since_last_bottom for recency filtering.
+        # Event semantics: fires only on the first bar of each cluster.
+        # Re-fires when the reference level changes (new swing confirmed).
         if "sfp_high" in col_set:
             ltp = (
                 df["ms_last_top_price"].to_numpy(dtype=float)
                 if "ms_last_top_price" in df.columns
                 else np.full(n, np.nan)
             )
-            sfp_h = np.where(
+            sfp_h_raw = np.where(
                 np.isnan(ltp),
                 False,
                 (highs > ltp) & (closes < ltp),
             )
+            sfp_h = _edge_detect_with_level(sfp_h_raw, ltp)
             df["ms_sfp_high"] = pd.array(sfp_h, dtype="boolean")  # type: ignore[arg-type]
 
         if "sfp_low" in col_set:
@@ -672,11 +695,12 @@ def _project_backtest(
                 if "ms_last_bottom_price" in df.columns
                 else np.full(n, np.nan)
             )
-            sfp_l = np.where(
+            sfp_l_raw = np.where(
                 np.isnan(lbp),
                 False,
                 (lows < lbp) & (closes > lbp),
             )
+            sfp_l = _edge_detect_with_level(sfp_l_raw, lbp)
             df["ms_sfp_low"] = pd.array(sfp_l, dtype="boolean")  # type: ignore[arg-type]
 
     if "structure_break_confirmed" in col_set:
@@ -709,11 +733,14 @@ def _project_backtest(
             elif direction is False:
                 is_down_arr[forming_s] = True
 
-        sbc = np.where(
+        sbc_raw = np.where(
             np.isnan(sbl_arr),
             False,
             (is_up_arr & (closes < sbl_arr)) | (is_down_arr & (closes > sbl_arr)),
         )
+        # Event semantics: fire only on the first bar that crosses the level.
+        # Re-fire when the break level itself changes (new wave boundary).
+        sbc = _edge_detect_with_level(sbc_raw, sbl_arr)
         df["ms_structure_break_confirmed"] = pd.array(sbc, dtype="boolean")  # type: ignore[arg-type]
 
     # ------------------------------------------------------------------
@@ -1362,6 +1389,13 @@ def _broadcast_tier2(
         dtype = dtype_map.get(col, "bool")
         df[f"ms_{col}"] = arrays[col]
 
+    # Event semantics for three_push: fire only on the first bar of each
+    # broadcast span (the wave boundary bar), not for the entire wave.
+    for tp_col in ("three_push_up", "three_push_down"):
+        if tp_col in col_set and f"ms_{tp_col}" in df.columns:
+            raw = df[f"ms_{tp_col}"].to_numpy(dtype=bool)
+            df[f"ms_{tp_col}"] = pd.array(_edge_detect(raw), dtype="boolean")  # type: ignore[arg-type]
+
 
 def _correct_trending_up(
     df: pd.DataFrame,
@@ -1642,7 +1676,15 @@ def _live_trend(col: str, ctx: _LiveContext) -> object:
         if np.isnan(sbl) or ctx.n == 0:
             return False
         last_close = float(ctx.df.iloc[-1]["close"])  # type: ignore[arg-type]
-        return last_close < sbl if is_up else last_close > sbl
+        cur = last_close < sbl if is_up else last_close > sbl
+        if not cur:
+            return False
+        # Edge-detect: suppress if the previous bar also crossed.
+        if ctx.n > 1:
+            prev_close = float(ctx.df.iloc[-2]["close"])  # type: ignore[arg-type]
+            prev = prev_close < sbl if is_up else prev_close > sbl
+            return not prev
+        return True
     return None  # not handled
 
 
@@ -1747,13 +1789,32 @@ def _live_volatility_distance(col: str, ctx: _LiveContext) -> object:
     if col == "bars_since_last_bottom":
         return ctx.n - 1 - ctx.last_bottom.formation_bar_index if ctx.last_bottom else pd.NA
     if col == "sfp_high":
-        if ctx.last_top and ctx.n > 0:
+        if ctx.last_top and ctx.n > 1:
+            ltp_val = _hco_value(ctx.last_top)
+            last_row = ctx.df.iloc[-1]
+            cur = float(last_row["high"]) > ltp_val and float(last_row["close"]) < ltp_val  # type: ignore[arg-type]
+            if not cur:
+                return False
+            # Edge-detect: suppress if the previous bar also fired SFP against same level.
+            prev_row = ctx.df.iloc[-2]
+            prev = float(prev_row["high"]) > ltp_val and float(prev_row["close"]) < ltp_val  # type: ignore[arg-type]
+            return not prev
+        if ctx.last_top and ctx.n == 1:
             ltp_val = _hco_value(ctx.last_top)
             last_row = ctx.df.iloc[-1]
             return float(last_row["high"]) > ltp_val and float(last_row["close"]) < ltp_val  # type: ignore[arg-type]
         return False
     if col == "sfp_low":
-        if ctx.last_bottom and ctx.n > 0:
+        if ctx.last_bottom and ctx.n > 1:
+            lbp_val = _lco_value(ctx.last_bottom)
+            last_row = ctx.df.iloc[-1]
+            cur = float(last_row["low"]) < lbp_val and float(last_row["close"]) > lbp_val  # type: ignore[arg-type]
+            if not cur:
+                return False
+            prev_row = ctx.df.iloc[-2]
+            prev = float(prev_row["low"]) < lbp_val and float(prev_row["close"]) > lbp_val  # type: ignore[arg-type]
+            return not prev
+        if ctx.last_bottom and ctx.n == 1:
             lbp_val = _lco_value(ctx.last_bottom)
             last_row = ctx.df.iloc[-1]
             return float(last_row["low"]) < lbp_val and float(last_row["close"]) > lbp_val  # type: ignore[arg-type]

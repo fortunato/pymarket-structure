@@ -63,4 +63,51 @@ export interface EnrichedBar {
 	// Wave metrics
 	ms_wave_length: number | null;
 	ms_wave_count: number | null;
+
+	// --- New columns (spec 002) ---
+
+	// Trend Structure
+	ms_structure_break_level: number | null;
+	ms_structure_break_confirmed: boolean | null;
+	ms_trend_wave_count: number | null;
+	ms_trend_duration: number | null;
+	ms_three_push_up: boolean | null;
+	ms_three_push_down: boolean | null;
+
+	// Wave Metrics (extended)
+	ms_wave_amplitude: number | null;
+	ms_wave_slope: number | null;
+	ms_wave_volume: number | null;
+	ms_wave_volume_ratio: number | null;
+	ms_wave_amplitude_ratio: number | null;
+
+	// Pullback Metrics (extended)
+	ms_pullback_atr_factor: number | null;
+
+	// Zone Quality
+	ms_zone_quality_support: number | null;
+	ms_zone_quality_resistance: number | null;
+
+	// Zone Lifecycle
+	ms_zone_break_support: boolean | null;
+	ms_zone_break_resistance: boolean | null;
+	ms_zone_retest_support: boolean | null;
+	ms_zone_retest_resistance: boolean | null;
+	ms_zone_retest_count_support: number | null;
+	ms_zone_retest_count_resistance: number | null;
+	ms_zone_flip_support: boolean | null;
+	ms_zone_flip_resistance: boolean | null;
+	ms_zone_failed_retest_support: boolean | null;
+	ms_zone_failed_retest_resistance: boolean | null;
+
+	// Volatility & Distance
+	ms_atr: number | null;
+	ms_distance_to_support: number | null;
+	ms_distance_to_resistance: number | null;
+
+	// Swing Failure Pattern
+	ms_sfp_high: boolean | null;
+	ms_sfp_low: boolean | null;
+	ms_bars_since_last_top: number | null;
+	ms_bars_since_last_bottom: number | null;
 }

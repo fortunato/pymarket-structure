@@ -5,6 +5,9 @@ import { EnrichedBar } from '../models/candle-bar.model';
 import { ChartStateService } from './chart-state.service';
 import {
 	detectDivergences,
+	detectLifecycleEvents,
+	detectPatternMarkers,
+	detectStructureBreakSpans,
 	detectTrendSpans,
 	detectWaveTransitions,
 	detectZoneSpans,
@@ -26,6 +29,9 @@ export class MarketDataService {
 	readonly waveTransitions = computed(() => detectWaveTransitions(this.bars()));
 	readonly divergences = computed(() => detectDivergences(this.bars()));
 	readonly trendSpans = computed(() => detectTrendSpans(this.bars()));
+	readonly lifecycleEvents = computed(() => detectLifecycleEvents(this.bars()));
+	readonly structureBreakSpans = computed(() => detectStructureBreakSpans(this.bars()));
+	readonly patternMarkers = computed(() => detectPatternMarkers(this.bars()));
 
 	constructor() {
 		// Reload bars whenever selectedPair changes
