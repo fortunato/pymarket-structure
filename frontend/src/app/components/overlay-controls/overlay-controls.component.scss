@@ -17,21 +17,6 @@
 	gap: 6px;
 }
 
-.attribution {
-	font-size: 11px;
-	color: var(--text-muted);
-	white-space: nowrap;
-
-	a {
-		color: var(--accent-blue);
-		text-decoration: none;
-
-		&:hover {
-			text-decoration: underline;
-		}
-	}
-}
-
 .toggle {
 	display: flex;
 	align-items: center;
