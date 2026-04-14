@@ -32,7 +32,7 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Type check
-        run: uv run pyright
+        run: uv run pyright --level error
 
       - name: Test with coverage
         run: uv run pytest
