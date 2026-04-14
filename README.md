@@ -1,8 +1,11 @@
 # market-structure
 
+[![CI](https://github.com/fortunato-geelhoed/pymarket-structure/actions/workflows/ci.yml/badge.svg)](https://github.com/fortunato-geelhoed/pymarket-structure/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/market-structure)](https://pypi.org/project/market-structure/)
+
 Python library for market structure analysis — swings, trends, support/resistance zones, break/retest/flip signals. Designed for use with [Freqtrade](https://www.freqtrade.io/).
 
-> **Status:** early development. API is unstable and the library is not yet published.
+> **Status:** early development. API is unstable.
 
 ## Backtest: market structure as a strategy filter
 
