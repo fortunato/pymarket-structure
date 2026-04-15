@@ -7,6 +7,8 @@ Python library for market structure analysis — swings, trends, support/resista
 
 > **Status:** early development. API is unstable.
 
+**[Live Demo](https://fortunato.github.io/pymarket-structure/)** — interactive chart viewer showing market structure overlays on real price data.
+
 ## Backtest: market structure as a strategy filter
 
 To validate the library, we ran an A/B comparison using a TSI signal-line crossover
