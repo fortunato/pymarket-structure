@@ -49,9 +49,9 @@ pip install market-structure
 > The PyPI distribution is `market-structure`; the import name is `market_structure`. The GitHub repo is named `pymarket-structure` for historical reasons.
 
 ```python
-from market_structure import hello
+from market_structure import MarketStructureHelper
 
-print(hello())
+ms = MarketStructureHelper()
 ```
 
 ## Development
