@@ -1,0 +1,11 @@
+<div class="controls">
+	<div class="toggles">
+		@for (entry of entries(); track entry.key) {
+			<label class="toggle" [class.active]="entry.active">
+				<input type="checkbox" [checked]="entry.active" (change)="toggle(entry.key)" />
+				<span class="indicator"></span>
+				<span class="label">{{ entry.label }}</span>
+			</label>
+		}
+	</div>
+</div>

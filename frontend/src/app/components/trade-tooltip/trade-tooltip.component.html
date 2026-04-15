@@ -1,0 +1,49 @@
+<div class="trade-tooltip" [class.pinned]="pinned()">
+	<div class="header-row" [class.win]="isWin()" [class.loss]="!isWin()">
+		<span class="direction">{{ direction() }}</span>
+		<span class="pnl">
+			{{ isWin() ? '+' : '' }}{{ profitPct() | number: '1.2-2' }}%
+			<span class="pnl-abs"
+				>({{ isWin() ? '+' : '' }}{{ trade().profit_abs | number: '1.2-2' }})</span
+			>
+		</span>
+	</div>
+
+	<div class="detail-section">
+		<div class="detail-row">
+			<span class="label">Entry</span>
+			<span class="value">{{ trade().open_rate | number: '1.2-2' }}</span>
+			<span class="date">{{ entryDate() }}</span>
+		</div>
+		<div class="detail-row">
+			<span class="label">Exit</span>
+			<span class="value">{{ trade().close_rate | number: '1.2-2' }}</span>
+			<span class="date">{{ exitDate() }}</span>
+		</div>
+		<div class="detail-row">
+			<span class="label">Duration</span>
+			<span class="value">{{ durationHours() }}h ({{ durationBars() }} bars)</span>
+		</div>
+	</div>
+
+	<div class="detail-section secondary">
+		<div class="detail-row">
+			<span class="label">Stake</span>
+			<span class="value">{{ trade().stake_amount | number: '1.2-2' }}</span>
+		</div>
+		@if (trade().enter_tag) {
+			<div class="detail-row">
+				<span class="label">Tag</span>
+				<span class="value tag">{{ trade().enter_tag }}</span>
+			</div>
+		}
+		<div class="detail-row">
+			<span class="label">Exit</span>
+			<span class="value tag">{{ trade().exit_reason }}</span>
+		</div>
+	</div>
+
+	@if (pinned()) {
+		<div class="pin-hint">Click to unpin</div>
+	}
+</div>

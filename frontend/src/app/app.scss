@@ -1,0 +1,68 @@
+:host {
+	display: block;
+	height: 100vh;
+	overflow: hidden;
+}
+
+.layout {
+	display: grid;
+	grid-template-rows: auto 1fr auto auto;
+	grid-template-columns: minmax(0, 1fr) clamp(220px, 25vw, 320px);
+	grid-template-areas:
+		'header   header'
+		'chart    sidebar'
+		'stats    stats'
+		'controls controls';
+	height: 100%;
+	width: 100%;
+}
+
+.header {
+	grid-area: header;
+}
+
+.chart {
+	grid-area: chart;
+	min-height: 0;
+	min-width: 0;
+}
+
+.sidebar {
+	grid-area: sidebar;
+	background: var(--bg-panel);
+	border-left: 1px solid var(--border);
+	min-height: 0;
+	min-width: 0;
+	overflow-y: auto;
+}
+
+.stats {
+	grid-area: stats;
+}
+
+.controls {
+	grid-area: controls;
+}
+
+@media (max-width: 768px) {
+	.layout {
+		grid-template-columns: 1fr;
+		grid-template-rows: auto 1fr auto auto auto;
+		grid-template-areas:
+			'header'
+			'chart'
+			'sidebar'
+			'stats'
+			'controls';
+	}
+
+	.sidebar {
+		border-left: none;
+		border-top: 1px solid var(--border);
+		max-height: 40vh;
+	}
+
+	.chart {
+		min-height: 300px;
+	}
+}

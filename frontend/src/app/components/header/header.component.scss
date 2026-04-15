@@ -1,0 +1,39 @@
+:host {
+	display: block;
+}
+
+.app-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 8px;
+	padding: 10px 20px;
+	background: var(--bg-secondary);
+	border-bottom: 1px solid var(--border);
+}
+
+.right {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+}
+
+.attribution {
+	font-size: 11px;
+	color: var(--text-muted);
+
+	a {
+		color: var(--accent-blue);
+		text-decoration: none;
+
+		&:hover {
+			text-decoration: underline;
+		}
+	}
+}
+
+.exchange {
+	font-size: 13px;
+	color: var(--text-muted);
+}

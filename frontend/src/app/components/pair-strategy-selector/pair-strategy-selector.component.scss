@@ -1,0 +1,53 @@
+:host {
+	display: block;
+}
+
+.selector-row {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.5rem 1rem;
+}
+
+.select-group {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+
+	label {
+		font-size: 0.75rem;
+		color: var(--text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	select {
+		background: var(--surface-2);
+		color: var(--text-primary);
+		border: 1px solid var(--border);
+		border-radius: 4px;
+		padding: 0.3rem 0.5rem;
+		font-size: 0.85rem;
+		font-family: inherit;
+		cursor: pointer;
+
+		&:hover {
+			border-color: var(--border-hover);
+		}
+
+		&:focus {
+			outline: none;
+			border-color: var(--accent);
+		}
+	}
+}
+
+.timeframe-badge {
+	background: var(--surface-2);
+	color: var(--text-muted);
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	padding: 0.3rem 0.5rem;
+	font-size: 0.75rem;
+	font-weight: 600;
+}

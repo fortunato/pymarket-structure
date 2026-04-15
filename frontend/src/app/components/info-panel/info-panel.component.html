@@ -1,0 +1,319 @@
+<aside class="panel">
+	@if (bar(); as b) {
+		<div class="timestamp">{{ formattedTime() }}</div>
+
+		<section class="section">
+			<h3>OHLCV</h3>
+			<div class="row">
+				<span class="label">O <app-hint text="Opening price of this candle" /></span>
+				<span class="value">{{ b.open | number: '1.2-2' }}</span>
+			</div>
+			<div class="row">
+				<span class="label">H <app-hint text="Highest price reached during this candle" /></span>
+				<span class="value">{{ b.high | number: '1.2-2' }}</span>
+			</div>
+			<div class="row">
+				<span class="label">L <app-hint text="Lowest price reached during this candle" /></span>
+				<span class="value">{{ b.low | number: '1.2-2' }}</span>
+			</div>
+			<div class="row">
+				<span class="label">C <app-hint text="Closing price of this candle" /></span>
+				<span class="value">{{ b.close | number: '1.2-2' }}</span>
+			</div>
+		</section>
+
+		<!-- Wave Identity -->
+		<details class="section" open>
+			<summary class="section-header">Wave Identity</summary>
+			<div class="row">
+				<span class="label">Side <app-hint text="Direction of the current wave — 'up' means price is rallying, 'down' means it's declining" /></span>
+				<span class="value" [class.up]="b.ms_wave_side === 'up'" [class.down]="b.ms_wave_side === 'down'">
+					{{ b.ms_wave_side || '--' }}
+				</span>
+			</div>
+			<div class="row">
+				<span class="label">ID <app-hint text="Unique identifier for this wave — use it to track the same wave across candles" /></span>
+				<span class="value mono">{{ b.ms_wave_id || '--' }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Count <app-hint text="Sequential wave number — wave 1, wave 2, etc. Higher counts mean more trend legs completed" /></span>
+				<span class="value">{{ fmtInt(b.ms_wave_count) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Length <app-hint text="Number of candles in this wave so far — longer waves tend to have stronger momentum" /></span>
+				<span class="value">{{ fmtInt(b.ms_wave_length) }}</span>
+			</div>
+		</details>
+
+		<!-- Price Levels -->
+		<details class="section" open>
+			<summary class="section-header">Price Levels</summary>
+			<div class="row">
+				<span class="label">Last Top <app-hint text="Price of the most recently confirmed swing high — key resistance reference" /></span>
+				<span class="value mono">{{ fmtPrice(b.ms_last_top_price) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Last Bottom <app-hint text="Price of the most recently confirmed swing low — key support reference" /></span>
+				<span class="value mono">{{ fmtPrice(b.ms_last_bottom_price) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">High Since <app-hint text="Candles since the last swing high — rising count means no new high has been set" /></span>
+				<span class="value">{{ fmtInt(b.ms_high_since) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Low Since <app-hint text="Candles since the last swing low — rising count means no new low has been set" /></span>
+				<span class="value">{{ fmtInt(b.ms_low_since) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Forming High <app-hint text="Highest price in the current unconfirmed wave — this swing point is still forming" /></span>
+				<span class="value mono">{{ fmtPrice(b.ms_forming_wave_high) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Forming Low <app-hint text="Lowest price in the current unconfirmed wave — this swing point is still forming" /></span>
+				<span class="value mono">{{ fmtPrice(b.ms_forming_wave_low) }}</span>
+			</div>
+		</details>
+
+		<!-- Structure -->
+		<details class="section" open>
+			<summary class="section-header">Structure</summary>
+			<div class="structure-grid">
+				<span class="badge up" [class.hidden]="!b.ms_made_higher_high">HH</span>
+				<span class="badge up" [class.hidden]="!b.ms_made_higher_low">HL</span>
+				<span class="badge down" [class.hidden]="!b.ms_made_lower_high">LH</span>
+				<span class="badge down" [class.hidden]="!b.ms_made_lower_low">LL</span>
+			</div>
+		</details>
+
+		<!-- Trends -->
+		<details class="section" open>
+			<summary class="section-header">Trends</summary>
+			<div class="row">
+				<span class="label">Trending <app-hint text="Current trend direction based on higher-highs/higher-lows (up) or lower-highs/lower-lows (down)" /></span>
+				<span class="value">
+					@if (b.ms_is_trending_up) { <span class="up">UP</span> }
+					@else if (b.ms_is_trending_down) { <span class="down">DOWN</span> }
+					@else { <span class="neutral">--</span> }
+				</span>
+			</div>
+		</details>
+
+		<!-- Zones -->
+		<details class="section zone-support" open>
+			<summary class="section-header">Support Zone</summary>
+			<div class="row">
+				<span class="label">Range <app-hint text="Price range of the nearest support zone — expect buying interest when price enters this band" /></span>
+				<span class="value mono">{{ fmtPrice(b.ms_support_zone_low) }} - {{ fmtPrice(b.ms_support_zone_high) }}</span>
+			</div>
+			<span class="badge double" [class.hidden]="!b.ms_support_is_double" title="Two swing lows at nearly the same price — stronger support level">Double Bottom</span>
+			<div class="row">
+				<span class="label">Overlaps <app-hint text="Number of overlapping swing lows in this zone — more overlaps = stronger support" /></span>
+				<span class="value">{{ fmtInt(b.ms_support_overlap_count) }}</span>
+			</div>
+		</details>
+
+		<details class="section zone-resistance" open>
+			<summary class="section-header">Resistance Zone</summary>
+			<div class="row">
+				<span class="label">Range <app-hint text="Price range of the nearest resistance zone — expect selling pressure when price enters this band" /></span>
+				<span class="value mono">{{ fmtPrice(b.ms_resistance_zone_low) }} - {{ fmtPrice(b.ms_resistance_zone_high) }}</span>
+			</div>
+			<span class="badge double" [class.hidden]="!b.ms_resistance_is_double" title="Two swing highs at nearly the same price — stronger resistance level">Double Top</span>
+			<div class="row">
+				<span class="label">Overlaps <app-hint text="Number of overlapping swing highs in this zone — more overlaps = stronger resistance" /></span>
+				<span class="value">{{ fmtInt(b.ms_resistance_overlap_count) }}</span>
+			</div>
+		</details>
+
+		<!-- Divergence -->
+		<details class="section divergence" open>
+			<summary class="section-header">Divergence</summary>
+			<div class="row">
+				<span class="value">
+					<span class="badge up" [class.hidden]="!b.ms_bullish_divergence">Bullish</span>
+					<span class="badge down" [class.hidden]="!b.ms_bearish_divergence">Bearish</span>
+					<span class="neutral" [class.hidden]="b.ms_bullish_divergence || b.ms_bearish_divergence">--</span>
+				</span>
+			</div>
+		</details>
+
+		<!-- Pullback -->
+		<details class="section" open>
+			<summary class="section-header">Pullback</summary>
+			<div class="row">
+				<span class="label">Correction <app-hint text="How much of the previous wave has been retraced — 0.5 means a 50% pullback, higher = deeper correction" /></span>
+				<span class="value">{{ fmtRatio(b.ms_pullback_correction_factor) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Length <app-hint text="Number of candles in the current pullback — compare to the prior wave length to gauge exhaustion" /></span>
+				<span class="value">{{ fmtInt(b.ms_pullback_length) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Breakout Level <app-hint text="Price that must be broken to confirm a new trend leg — a close beyond this level signals continuation" /></span>
+				<span class="value mono">{{ fmtPrice(b.ms_pullback_breakout_level) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Price Diff <app-hint text="Distance from current price to the breakout level — negative means price hasn't reached it yet" /></span>
+				<span class="value mono">{{ fmtPrice(b.ms_pullback_price_diff) }}</span>
+			</div>
+		</details>
+
+		<!-- ======= NEW SECTIONS (collapsed by default) ======= -->
+
+		<details class="section">
+			<summary class="section-header">Trend Structure</summary>
+			<div class="row">
+				<span class="label">Break Level <app-hint text="Price level where a trend break is detected — a close beyond this invalidates the current trend" /></span>
+				<span class="value mono">{{ fmtPrice(b.ms_structure_break_level) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Break Confirmed <app-hint text="Whether the structure break has been confirmed by a candle close — 'SB' badge means the trend has shifted" /></span>
+				<span class="value">
+					@if (b.ms_structure_break_confirmed) { <span class="badge down">SB</span> }
+					@else { <span class="neutral">--</span> }
+				</span>
+			</div>
+			<div class="row">
+				<span class="label">Trend Waves <app-hint text="Total waves in the current trend — more waves typically signal a mature trend closer to exhaustion" /></span>
+				<span class="value">{{ fmtInt(b.ms_trend_wave_count) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Trend Duration <app-hint text="Total candles since the current trend began — longer durations increase the probability of a reversal" /></span>
+				<span class="value">{{ fmtInt(b.ms_trend_duration) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Three Push <app-hint text="Three consecutive pushes in one direction with diminishing momentum — classic exhaustion/reversal pattern" /></span>
+				<span class="value">
+					@if (b.ms_three_push_up) { <span class="badge down">3P Up</span> }
+					@if (b.ms_three_push_down) { <span class="badge up">3P Down</span> }
+					@if (!b.ms_three_push_up && !b.ms_three_push_down) { <span class="neutral">--</span> }
+				</span>
+			</div>
+		</details>
+
+		<details class="section">
+			<summary class="section-header">Wave Metrics</summary>
+			<div class="row">
+				<span class="label">Amplitude <app-hint text="Wave size measured in ATR units — larger amplitude means a bigger price move relative to volatility" /></span>
+				<span class="value">{{ fmtAtr(b.ms_wave_amplitude) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Slope <app-hint text="Rate of price change per candle in ATR units — steeper slope = faster move, gentle slope = grinding" /></span>
+				<span class="value">{{ fmtAtr(b.ms_wave_slope) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Volume <app-hint text="Total volume traded during this wave — compare to prior waves to confirm or question the move's conviction" /></span>
+				<span class="value">{{ fmtInt(b.ms_wave_volume) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Volume Ratio <app-hint text="This wave's volume divided by the previous wave — above 1.0x means increasing participation, below means fading interest" /></span>
+				<span class="value">{{ fmtRatio(b.ms_wave_volume_ratio) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Amplitude Ratio <app-hint text="This wave's amplitude divided by the previous wave — shrinking ratio suggests momentum is weakening" /></span>
+				<span class="value">{{ fmtRatio(b.ms_wave_amplitude_ratio) }}</span>
+			</div>
+		</details>
+
+		<details class="section">
+			<summary class="section-header">Pullback Metrics</summary>
+			<div class="row">
+				<span class="label">ATR Factor <app-hint text="Pullback depth measured in ATR units — larger values mean the pullback is significant relative to current volatility" /></span>
+				<span class="value">{{ fmtAtr(b.ms_pullback_atr_factor) }}</span>
+			</div>
+		</details>
+
+		<details class="section">
+			<summary class="section-header">Zone Quality</summary>
+			<div class="row">
+				<span class="label">Support <app-hint text="Composite quality score (0-10) for the nearest support zone — considers overlaps, freshness, and double-bottom status" /></span>
+				<span class="value" [class]="qualityClass(b.ms_zone_quality_support)">
+					{{ fmtScore(b.ms_zone_quality_support) }}
+					@if (qualityLabel(b.ms_zone_quality_support); as lbl) {
+						<span class="quality-label">({{ lbl }})</span>
+					}
+				</span>
+			</div>
+			<div class="row">
+				<span class="label">Resistance <app-hint text="Composite quality score (0-10) for the nearest resistance zone — considers overlaps, freshness, and double-top status" /></span>
+				<span class="value" [class]="qualityClass(b.ms_zone_quality_resistance)">
+					{{ fmtScore(b.ms_zone_quality_resistance) }}
+					@if (qualityLabel(b.ms_zone_quality_resistance); as lbl) {
+						<span class="quality-label">({{ lbl }})</span>
+					}
+				</span>
+			</div>
+		</details>
+
+		<details class="section">
+			<summary class="section-header">Zone Lifecycle</summary>
+			<div class="structure-grid">
+				<span class="badge down" [class.hidden]="!b.ms_zone_break_support" title="Price broke below the support zone — bearish signal, zone is invalidated">Break Sup</span>
+				<span class="badge up" [class.hidden]="!b.ms_zone_break_resistance" title="Price broke above the resistance zone — bullish signal, zone is invalidated">Break Res</span>
+				<span class="badge event-retest" [class.hidden]="!b.ms_zone_retest_support" title="Price returned to test the support zone — a successful hold strengthens it">Retest Sup</span>
+				<span class="badge event-retest" [class.hidden]="!b.ms_zone_retest_resistance" title="Price returned to test the resistance zone — a successful rejection strengthens it">Retest Res</span>
+				<span class="badge event-flip" [class.hidden]="!b.ms_zone_flip_support" title="Former resistance has flipped to act as support — polarity change, a strong technical signal">Flip Sup</span>
+				<span class="badge event-flip" [class.hidden]="!b.ms_zone_flip_resistance" title="Former support has flipped to act as resistance — polarity change, a strong technical signal">Flip Res</span>
+				<span class="badge event-failed" [class.hidden]="!b.ms_zone_failed_retest_support" title="Failed retest of support — price came back but couldn't hold, zone is weakened">FR Sup</span>
+				<span class="badge event-failed" [class.hidden]="!b.ms_zone_failed_retest_resistance" title="Failed retest of resistance — price came back but couldn't break through, zone is weakened">FR Res</span>
+				<span class="neutral" [class.hidden]="hasLifecycleEvent(b)">--</span>
+			</div>
+			<div class="row">
+				<span class="label">Retest Count Sup <app-hint text="Times this support zone has been retested — each successful hold confirms the level, but many retests eventually weaken it" /></span>
+				<span class="value">{{ fmtInt(b.ms_zone_retest_count_support) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Retest Count Res <app-hint text="Times this resistance zone has been retested — each rejection confirms the level, but many retests eventually weaken it" /></span>
+				<span class="value">{{ fmtInt(b.ms_zone_retest_count_resistance) }}</span>
+			</div>
+		</details>
+
+		<details class="section">
+			<summary class="section-header">Volatility &amp; Distance</summary>
+			<div class="row">
+				<span class="label">ATR <app-hint text="Average True Range — measures typical candle size/volatility. Used to normalize all distance and amplitude readings" /></span>
+				<span class="value mono">{{ fmtAtrRaw(b.ms_atr) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Dist to Support <app-hint text="Distance from current price to the nearest support zone, measured in ATR — smaller = closer to potential bounce" /></span>
+				<span class="value">{{ fmtDistance(b.ms_distance_to_support, 'support') }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Dist to Resistance <app-hint text="Distance from current price to the nearest resistance zone, measured in ATR — smaller = closer to potential rejection" /></span>
+				<span class="value">{{ fmtDistance(b.ms_distance_to_resistance, 'resistance') }}</span>
+			</div>
+		</details>
+
+		<details class="section">
+			<summary class="section-header">Swing Failure Pattern</summary>
+			<div class="row">
+				<span class="label">SFP High <app-hint text="Swing Failure Pattern at a high — price wicked above the prior high but closed back below it, trapping breakout buyers" /></span>
+				<span class="value">
+					@if (b.ms_sfp_high) { <span class="badge down">SFP</span> }
+					@else { <span class="neutral">--</span> }
+				</span>
+			</div>
+			<div class="row">
+				<span class="label">SFP Low <app-hint text="Swing Failure Pattern at a low — price wicked below the prior low but closed back above it, trapping breakdown sellers" /></span>
+				<span class="value">
+					@if (b.ms_sfp_low) { <span class="badge up">SFP</span> }
+					@else { <span class="neutral">--</span> }
+				</span>
+			</div>
+			<div class="row">
+				<span class="label">Bars Since Top <app-hint text="Candles since the last confirmed swing high — relevant for timing SFP setups near prior tops" /></span>
+				<span class="value">{{ fmtInt(b.ms_bars_since_last_top) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Bars Since Bottom <app-hint text="Candles since the last confirmed swing low — relevant for timing SFP setups near prior bottoms" /></span>
+				<span class="value">{{ fmtInt(b.ms_bars_since_last_bottom) }}</span>
+			</div>
+		</details>
+
+	} @else {
+		<div class="empty">
+			<span class="empty-icon">+</span>
+			<span>Hover over a candle</span>
+		</div>
+	}
+</aside>

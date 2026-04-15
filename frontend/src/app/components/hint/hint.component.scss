@@ -1,0 +1,44 @@
+:host {
+	display: inline-flex;
+	align-items: center;
+	margin-left: 4px;
+}
+
+.hint {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	border: 1px solid var(--text-muted);
+	color: var(--text-muted);
+	font-size: 9px;
+	font-weight: 600;
+	cursor: help;
+	flex-shrink: 0;
+	transition: border-color 0.15s, color 0.15s;
+
+	&:hover {
+		border-color: var(--accent-blue);
+		color: var(--accent-blue);
+	}
+}
+
+.tip {
+	position: fixed;
+	max-width: 250px;
+	background: rgba(22, 33, 62, 0.96);
+	border: 1px solid var(--border-hover);
+	border-radius: 6px;
+	padding: 8px 10px;
+	font-size: 11px;
+	font-weight: 400;
+	line-height: 1.5;
+	color: var(--text-secondary);
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+	backdrop-filter: blur(8px);
+	z-index: 1000;
+	pointer-events: none;
+	white-space: normal;
+}
