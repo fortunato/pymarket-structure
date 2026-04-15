@@ -6,16 +6,10 @@ from market_structure.mtf import attach_market_structure_mtf
 from market_structure.tsi import compute_tsi
 from market_structure.types import ZoneLifecycleState
 
-
-def hello() -> str:
-    return "Hello from market-structure!"
-
-
 __all__ = [
     "MarketStructureHelper",
     "ZoneLifecycleState",
     "attach_market_structure",
     "attach_market_structure_mtf",
     "compute_tsi",
-    "hello",
 ]
