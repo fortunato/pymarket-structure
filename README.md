@@ -9,6 +9,8 @@ Python library for market structure analysis — swings, trends, support/resista
 
 **[Live Demo](https://fortunato.github.io/pymarket-structure/)** — interactive chart viewer showing market structure overlays on real price data.
 
+![Market Structure Viewer — SOL/USDT 4h showing support/resistance zones, structure break, bearish divergence, and wave metrics](docs/images/market-structure-viewer.png)
+
 ## Backtest: market structure as a strategy filter
 
 To validate the library, we ran an A/B comparison using a TSI signal-line crossover
