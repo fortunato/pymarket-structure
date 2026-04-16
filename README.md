@@ -5,8 +5,6 @@
 
 Python library for market structure analysis — swings, trends, support/resistance zones, break/retest/flip signals. Designed for use with [Freqtrade](https://www.freqtrade.io/).
 
-> **Status:** early development. API is unstable.
-
 **[Live Demo](https://fortunato.github.io/pymarket-structure/)** — interactive chart viewer showing market structure overlays on real price data.
 
 ![Market Structure Viewer — SOL/USDT 4h showing support/resistance zones, structure break, bearish divergence, and wave metrics](docs/images/market-structure-viewer.png)
