@@ -2,6 +2,9 @@
 
 [![CI](https://github.com/fortunato/pymarket-structure/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/fortunato/pymarket-structure/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/market-structure)](https://pypi.org/project/market-structure/)
+[![Python versions](https://img.shields.io/pypi/pyversions/market-structure)](https://pypi.org/project/market-structure/)
+[![License](https://img.shields.io/pypi/l/market-structure)](LICENSE)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 Python library for market structure analysis — swings, trends, support/resistance zones, break/retest/flip signals. Designed for use with [Freqtrade](https://www.freqtrade.io/).
 
