@@ -9,7 +9,45 @@ See ``docs/porting-market-structure-helper.md`` for the architectural
 rationale (option (c) hybrid).
 """
 
+import numpy as np
+
 from market_structure.types import Candle, Direction, LongTermSwing, Pullback, Wave, Zone
+
+
+def _double_pattern_tolerance(
+    atr_arr: np.ndarray | None,
+    anchor: Wave,
+    side: Direction,
+    atr_multiple: float,
+    pct_fallback: float,
+) -> float:
+    """Return the price-proximity tolerance for double-pattern qualification.
+
+    Reads ATR at the anchor wave's **own swing bar** — ``anchor.low_idx`` for
+    support (``side="down"``), ``anchor.high_idx`` for resistance
+    (``side="up"``). Do NOT use ``anchor.formation_bar_index``: that is the
+    flip candle of the *next* wave (see ``hydrate.py:131-132`` and
+    ``types.py:55``), which can equal ``len(atr_arr)`` for the most recent
+    in-progress wave and would silently force every freshest-anchor call
+    into the percentage fallback — the opposite of the intended behaviour.
+
+    Falls back to ``pct_fallback * anchor.low.low`` (support) or
+    ``pct_fallback * anchor.high.high`` (resistance) when ``atr_arr`` is
+    ``None``, the per-anchor lookup is out of bounds, or the ATR value is
+    not finite and positive (including negative values). The fallback is
+    intentionally tighter than a typical ATR-path tolerance so the
+    fallback→ATR transition is monotone-conservative.
+    """
+    anchor_price = anchor.low.low if side == "down" else anchor.high.high
+
+    if atr_arr is not None:
+        idx = anchor.low_idx if side == "down" else anchor.high_idx
+        if 0 <= idx < len(atr_arr):
+            atr_val = float(atr_arr[idx])
+            if np.isfinite(atr_val) and atr_val > 0:
+                return atr_multiple * atr_val
+
+    return pct_fallback * anchor_price
 
 
 class MarketStructureHelper:
@@ -721,6 +759,30 @@ class MarketStructureHelper:
         """
         return (b[0] <= a[0] <= b[1]) or (b[0] <= a[1] <= b[1]) or (a[0] <= b[0] and a[1] >= b[1])
 
+    def _assert_alternation(self, anchor: Wave, preceding: Wave) -> None:
+        """Alternation invariant for the double-pattern body (FR-005).
+
+        TSI-driven wave emission guarantees that same-side waves are
+        separated by at least one opposite-side wave in
+        ``_wave_registry``. An assertion failure here indicates a bug
+        somewhere in the emission path, not a recoverable runtime
+        condition (see research.md D-7). Under ``python -O`` the assert
+        is stripped — this is intentional.
+        """
+        assert anchor.side == preceding.side, (
+            f"double-pattern pair with mismatched sides: "
+            f"{preceding.id}={preceding.side} vs {anchor.id}={anchor.side}"
+        )
+        reg = self._wave_registry
+        pre_pos = next((i for i, w in enumerate(reg) if w is preceding), -1)
+        # Forming-wave anchors aren't in ``_wave_registry``; treat the
+        # anchor position as one past the end for those.
+        anc_pos = next((i for i, w in enumerate(reg) if w is anchor), len(reg))
+        assert any(reg[j].side != anchor.side for j in range(pre_pos + 1, anc_pos)), (
+            f"registry alternation broken: no opposite-side wave between "
+            f"{preceding.id} (pos {pre_pos}) and {anchor.id} (pos {anc_pos})"
+        )
+
     # ------------------------------------------------------------------
     # Zone detection
     # ------------------------------------------------------------------
@@ -728,32 +790,83 @@ class MarketStructureHelper:
     def get_support_zones(
         self,
         include_forming_wave: bool = False,
-        double_bottom_proximity: int = 1,
+        double_bottom_proximity: int = 2,
         filter_if_not_overlapping: bool = False,
         only_include_most_recent_zone: bool = True,
+        *,
+        atr_arr: np.ndarray | None = None,
+        tolerance_atr_multiple: float = 0.3,
+        tolerance_pct_fallback: float = 0.004,
     ) -> list[Zone]:
         """Identify support zones from overlapping bottom-wave wick ranges.
 
         Walks bottom waves newest-to-oldest. For each, builds a wick
-        range via ``get_bottom_range`` and checks all older bottoms for
-        overlap. Zones that overlap a recent double-bottom are extended
-        to include the deeper wick.
+        range via ``get_bottom_range`` and collects older bottoms whose
+        wicks overlap (the ``overlapping_low_wave_ids`` geometry list).
+        A separate, price-proximity test decides whether the candidate
+        is a double bottom: the anchor's low must be within
+        ``tolerance`` of a preceding same-side wave's low and no
+        intervening low may undercut the pair (``made_lower_low_between``).
+        When a candidate is qualified AND the two wicks overlap, the
+        zone range is extended down to include the deeper wick (FR-013
+        decoupling — qualification is "are these the same level",
+        geometry is "what price range did the market actually trade in").
 
         Args:
             include_forming_wave: Include the in-flight wave if it's a
                 down-wave.
             double_bottom_proximity: How many preceding same-side waves
-                to consider for double-bottom labelling.
+                to consider for double-bottom labelling. Default raised
+                from ``1`` to ``2`` in the ``004-robust-double-patterns``
+                release so the canonical W-pattern with one intermediate
+                non-violating higher low is admitted out of the box
+                (FR-007/FR-008).
             filter_if_not_overlapping: If True, drop zones with zero
                 overlapping lows (no confirmation from older bottoms).
             only_include_most_recent_zone: If True, skip a wave whose
                 range overlaps an already-registered zone.
+            atr_arr: Optional ATR values aligned 1:1 with the DataFrame
+                the helper was hydrated from. When provided, the
+                double-bottom qualification predicate uses
+                ``tolerance_atr_multiple * atr_arr[anchor.low_idx]`` as
+                the price-proximity tolerance; when ``None`` (or when
+                the per-anchor lookup yields NaN / zero / out-of-bounds),
+                the ``tolerance_pct_fallback`` path is used instead.
+
+                **Cache-key note**: the zone cache keys on
+                ``id(atr_arr)`` (object identity), not content equality.
+                This is correct within a single ``attach_market_structure``
+                call tree (the same array is passed to both zone methods).
+                Callers who reuse a helper across multiple separate ATR
+                computations in the same process — and allow the first
+                array to be garbage-collected before the second call —
+                may hit a stale cache entry because CPython can reuse the
+                freed memory address. In that scenario, construct a fresh
+                helper or explicitly invalidate the cache by calling with
+                a different ``include_forming_wave`` toggle.
+            tolerance_atr_multiple: Multiplier applied to the anchor
+                wave's formation-bar ATR to compute the "same level"
+                tolerance band. Default 0.3.
+            tolerance_pct_fallback: Fraction of the anchor's low used as
+                tolerance when the ATR value is missing, zero, or out of
+                bounds. Default 0.004 (0.4 %).
+
+        The double-pattern body is also guarded by an alternation
+        ``assert`` (``_assert_alternation``) that verifies the
+        preceding and anchor waves are same-sided and have at least one
+        opposite-side wave between them in ``_wave_registry``. The assert
+        is a correctness tripwire for the TSI-driven emission path — under
+        ``python -O`` it is stripped; if you rely on this invariant as a
+        production guardrail, do not run with ``-O`` (research.md D-7).
         """
         params_key = (
             include_forming_wave,
             double_bottom_proximity,
             filter_if_not_overlapping,
             only_include_most_recent_zone,
+            id(atr_arr),
+            tolerance_atr_multiple,
+            tolerance_pct_fallback,
         )
         if self._zone_cache_support is not None and self._zone_cache_support[0] == params_key:
             return self._zone_cache_support[1]
@@ -783,14 +896,31 @@ class MarketStructureHelper:
             # Match against all preceding (older) bottoms.
             for preceding_idx, preceding_wave in enumerate(down_waves[idx + 1 :]):
                 bottom_range = self.get_bottom_range(preceding_wave)
-                if self.range_overlaps(bottom_range, (current_range[0], current_range[1])):
+                wicks_overlap = self.range_overlaps(
+                    bottom_range, (current_range[0], current_range[1])
+                )
+
+                if wicks_overlap:
                     overlapping_lows.append(preceding_wave.id)
 
-                    if preceding_idx < double_bottom_proximity and not self.made_lower_low_between(
-                        wave, preceding_wave
-                    ):
+                # New tolerance-based qualification predicate.
+                # Replaces the old wick-overlap test. Wick geometry is now
+                # decoupled from qualification — extension (below) only fires
+                # when wicks *actually* overlap.
+                if preceding_idx < double_bottom_proximity and not self.made_lower_low_between(
+                    wave, preceding_wave
+                ):
+                    self._assert_alternation(wave, preceding_wave)
+                    tolerance = _double_pattern_tolerance(
+                        atr_arr,
+                        wave,
+                        "down",
+                        tolerance_atr_multiple,
+                        tolerance_pct_fallback,
+                    )
+                    if abs(preceding_wave.low.low - wave.low.low) <= tolerance:
                         is_double = True
-                        if preceding_wave.low.low < current_range[0]:
+                        if wicks_overlap and preceding_wave.low.low < current_range[0]:
                             current_range[0] = preceding_wave.low.low
 
             # Find overlapping top waves.
@@ -822,19 +952,33 @@ class MarketStructureHelper:
     def get_resistance_zones(
         self,
         include_forming_wave: bool = False,
-        double_top_proximity: int = 1,
+        double_top_proximity: int = 2,
         filter_if_not_overlapping: bool = False,
         only_include_most_recent_zone: bool = True,
+        *,
+        atr_arr: np.ndarray | None = None,
+        tolerance_atr_multiple: float = 0.3,
+        tolerance_pct_fallback: float = 0.004,
     ) -> list[Zone]:
         """Identify resistance zones from overlapping top-wave wick ranges.
 
-        Mirror of ``get_support_zones`` for tops / resistance.
+        Mirror of ``get_support_zones`` for tops / resistance. See that
+        method's docstring for the full parameter contract (including
+        the new double-pattern tolerance semantics, the raised
+        ``double_top_proximity`` default, the alternation ``assert``,
+        and the ``python -O`` caveat). Differences: the ATR lookup
+        here uses ``anchor.high_idx`` instead of ``anchor.low_idx``,
+        and the percentage fallback is applied against
+        ``anchor.high.high``.
         """
         params_key = (
             include_forming_wave,
             double_top_proximity,
             filter_if_not_overlapping,
             only_include_most_recent_zone,
+            id(atr_arr),
+            tolerance_atr_multiple,
+            tolerance_pct_fallback,
         )
         if self._zone_cache_resistance is not None and self._zone_cache_resistance[0] == params_key:
             return self._zone_cache_resistance[1]
@@ -861,14 +1005,27 @@ class MarketStructureHelper:
 
             for preceding_idx, preceding_wave in enumerate(up_waves[idx + 1 :]):
                 top_range = self.get_top_range(preceding_wave)
-                if self.range_overlaps(top_range, (current_range[0], current_range[1])):
+                wicks_overlap = self.range_overlaps(top_range, (current_range[0], current_range[1]))
+
+                if wicks_overlap:
                     overlapping_highs.append(preceding_wave.id)
 
-                    if preceding_idx < double_top_proximity and not self.made_higher_high_between(
-                        wave, preceding_wave
-                    ):
+                # New tolerance-based qualification predicate (FR-001, FR-002,
+                # FR-011). Mirrors the support-side flow in ``get_support_zones``.
+                if preceding_idx < double_top_proximity and not self.made_higher_high_between(
+                    wave, preceding_wave
+                ):
+                    self._assert_alternation(wave, preceding_wave)
+                    tolerance = _double_pattern_tolerance(
+                        atr_arr,
+                        wave,
+                        "up",
+                        tolerance_atr_multiple,
+                        tolerance_pct_fallback,
+                    )
+                    if abs(preceding_wave.high.high - wave.high.high) <= tolerance:
                         is_double = True
-                        if preceding_wave.high.high > current_range[1]:
+                        if wicks_overlap and preceding_wave.high.high > current_range[1]:
                             current_range[1] = preceding_wave.high.high
 
             overlapping_lows: list[str] = [
@@ -964,7 +1121,7 @@ class MarketStructureHelper:
         """Return the wave with the given ID, or ``None``.
 
         Linear scan — the registry is small (capped at ``max_waves``).
-        Needed by downstream zone utilities (Stage 12).
+        Needed by downstream zone utilities.
         """
         for wave in self._wave_registry:
             if wave.id == wave_id:

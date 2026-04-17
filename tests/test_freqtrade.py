@@ -194,9 +194,12 @@ def _build_reference(raw: list[dict[str, object]]) -> pd.DataFrame:
         )
 
         # Zone columns — query helper after each bar (brute-force reference).
-        sup_zones = h.get_support_zones()
+        # Pass ``atr_arr`` to match the projected path (``_snapshot_zones``
+        # in freqtrade.py), which now drives the tolerance predicate via
+        # the ATR multiple rather than percentage-of-price fallback.
+        sup_zones = h.get_support_zones(atr_arr=atr_arr)
         sz = sup_zones[0] if sup_zones else None
-        res_zones = h.get_resistance_zones()
+        res_zones = h.get_resistance_zones(atr_arr=atr_arr)
         rz = res_zones[0] if res_zones else None
         records[-1].update(
             {

@@ -8,8 +8,10 @@ other internal state to verify the construction machinery.
 
 # pyright: reportPrivateUsage=false
 
+import pytest
+
 from market_structure import MarketStructureHelper
-from market_structure.types import Candle
+from market_structure.types import Candle, Wave
 
 # ---------------------------------------------------------------------------
 # Test-local candle factories
@@ -353,3 +355,70 @@ class TestMultipleWaves:
         h = MarketStructureHelper()
         _trigger_one_up_wave(h)
         assert h.wave_registry[0].pullback is None
+
+
+# ---------------------------------------------------------------------------
+# Alternation invariant — runtime assert guards the double-pattern body
+# from malformed registries (FR-005, FR-006, SC-005).
+# ---------------------------------------------------------------------------
+
+
+def _minimal_wave(wave_id: str, side: str, low: float, high: float, fbi: int) -> Wave:
+    """Build a Wave with the minimum fields the zone methods read.
+
+    The double-pattern path uses ``wave.id``, ``wave.side``, ``wave.low``,
+    ``wave.high``, ``wave.low_idx``, ``wave.high_idx`` and
+    ``wave.formation_bar_index``. Everything else can be a stub.
+    """
+    c = Candle(
+        open_time=fbi * 1000,
+        open=low,
+        high=high,
+        low=low,
+        close=high,
+        volume=1.0,
+        histogram_value=-0.5 if side == "down" else 0.5,
+    )
+    return Wave(
+        id=wave_id,
+        side=side,  # type: ignore[arg-type]
+        formation_bar_index=fbi,
+        high=c,
+        low=c,
+        highest_close=c,
+        lowest_close=c,
+        highest_close_or_open=c,
+        lowest_close_or_open=c,
+        high_idx=fbi,
+        low_idx=fbi,
+        highest_close_or_open_idx=fbi,
+        lowest_close_or_open_idx=fbi,
+        candles=(c,),
+    )
+
+
+def test_alternation_assertion_fires_on_adjacent_same_side_waves() -> None:
+    """T032 — two adjacent same-side waves in ``_wave_registry`` (no
+    opposite-side wave between them) must trigger ``AssertionError`` when
+    the double-pattern body runs. Guarantees SC-005.
+    """
+    h = MarketStructureHelper()
+    w0 = _minimal_wave("w-0", "down", low=100.0, high=101.0, fbi=0)
+    w1 = _minimal_wave("w-1", "down", low=100.1, high=101.0, fbi=1)
+    # Deliberately malformed: two adjacent down-waves with no up-wave
+    # between them. Under TSI-driven emission this is impossible.
+    h._wave_registry = [w0, w1]
+    h._bottom_waves = [w0, w1]
+    with pytest.raises(AssertionError):
+        h.get_support_zones()
+
+
+def test_alternation_assertion_fires_on_adjacent_same_side_waves_top() -> None:
+    """T033 — mirror of T032 for the resistance path."""
+    h = MarketStructureHelper()
+    w0 = _minimal_wave("w-0", "up", low=99.0, high=110.0, fbi=0)
+    w1 = _minimal_wave("w-1", "up", low=99.0, high=109.9, fbi=1)
+    h._wave_registry = [w0, w1]
+    h._top_waves = [w0, w1]
+    with pytest.raises(AssertionError):
+        h.get_resistance_zones()

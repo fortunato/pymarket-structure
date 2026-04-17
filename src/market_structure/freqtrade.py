@@ -325,6 +325,7 @@ def _snapshot_zones(
     tops: list[Wave],
     bottoms: list[Wave],
     columns: tuple[str, ...],
+    atr_arr: np.ndarray,
 ) -> None:
     """Capture nearest support/resistance zone state into *snap*.
 
@@ -378,10 +379,10 @@ def _snapshot_zones(
         rz: Zone | None = None
 
         if need_support:
-            zones = helper.get_support_zones()
+            zones = helper.get_support_zones(atr_arr=atr_arr)
             sz = zones[0] if zones else None
         if need_resistance:
-            zones = helper.get_resistance_zones()
+            zones = helper.get_resistance_zones(atr_arr=atr_arr)
             rz = zones[0] if zones else None
     finally:
         # Restore original helper state.
@@ -1118,7 +1119,7 @@ def _compute_snapshots(
         # Batch 2 — zone columns (query helper with accumulated state)
         if need_zones:
             registry_slice = waves[: wave_idx + 1]
-            _snapshot_zones(snap, helper, registry_slice, tops, bottoms, columns)
+            _snapshot_zones(snap, helper, registry_slice, tops, bottoms, columns, atr_arr)
 
         # Zone quality — computed from the zone objects captured by _snapshot_zones.
         if "zone_quality_support" in col_set or "zone_quality_resistance" in col_set:
@@ -1699,7 +1700,7 @@ def _live_zone(col: str, ctx: _LiveContext) -> object:
         "support_zone_anchor_time",
         "zone_quality_support",
     }:
-        zones = ctx.helper.get_support_zones()
+        zones = ctx.helper.get_support_zones(atr_arr=ctx.atr_arr)
         sz = zones[0] if zones else None
         if col == "support_zone_low":
             return sz.range[0] if sz else np.nan
@@ -1727,7 +1728,7 @@ def _live_zone(col: str, ctx: _LiveContext) -> object:
         "resistance_zone_anchor_time",
         "zone_quality_resistance",
     }:
-        zones = ctx.helper.get_resistance_zones()
+        zones = ctx.helper.get_resistance_zones(atr_arr=ctx.atr_arr)
         rz = zones[0] if zones else None
         if col == "resistance_zone_low":
             return rz.range[0] if rz else np.nan
@@ -1769,7 +1770,7 @@ def _live_volatility_distance(col: str, ctx: _LiveContext) -> object:
     if col == "atr":
         return ctx.last_atr
     if col == "distance_to_support":
-        zones = ctx.helper.get_support_zones()
+        zones = ctx.helper.get_support_zones(atr_arr=ctx.atr_arr)
         sz = zones[0] if zones else None
         last_close = float(ctx.df.iloc[-1]["close"]) if ctx.n > 0 else np.nan  # type: ignore[arg-type]
         atr_val = ctx.last_atr_positive
@@ -1777,7 +1778,7 @@ def _live_volatility_distance(col: str, ctx: _LiveContext) -> object:
             return (last_close - sz.range[1]) / atr_val
         return np.nan
     if col == "distance_to_resistance":
-        zones = ctx.helper.get_resistance_zones()
+        zones = ctx.helper.get_resistance_zones(atr_arr=ctx.atr_arr)
         rz = zones[0] if zones else None
         last_close = float(ctx.df.iloc[-1]["close"]) if ctx.n > 0 else np.nan  # type: ignore[arg-type]
         atr_val = ctx.last_atr_positive

@@ -54,6 +54,46 @@ ng e2e
 
 Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
 
+## Chart data fixtures
+
+The viewer reads pre-enriched OHLCV + backtest-trade JSON from
+`src/assets/data/`. That directory is **generated** by
+`scripts/export_chart_data.py`, not committed by hand.
+
+The script loops every OHLCV file in `../refs/freqtrade/ohlcv/*-4h.json`,
+computes TSI, runs `attach_market_structure()` from the Python library,
+and writes one enriched JSON per pair. It also transforms every backtest
+result in `../refs/freqtrade/backtest_results/*-trades.json` into a
+frontend-friendly shape under `src/assets/data/trades/`.
+
+### How to run
+
+From the `pymarket-structure/` directory (the Python project root, so
+`uv` picks up the library):
+
+```bash
+uv run python frontend/scripts/export_chart_data.py
+```
+
+Outputs: `src/assets/data/<PAIR>-4h.json` (one per OHLCV input) and
+`src/assets/data/trades/<Strategy>-<PAIR>-4h.json` (one per backtest
+input).
+
+### When to re-run
+
+Re-run whenever any of the following changes, otherwise the chart will
+display stale zone / wave / trade data:
+
+- The market-structure library behaviour (e.g. zone qualification rules,
+  break/retest/flip logic, new `ms_*` columns).
+- The TSI computation parameters in `_compute_tsi()` at the top of the
+  script.
+- The input OHLCV files under `../refs/freqtrade/ohlcv/`.
+- The backtest result files under `../refs/freqtrade/backtest_results/`.
+
+Running `ng serve` / `ng build` will NOT regenerate these files — you
+must invoke the Python script explicitly.
+
 ## Additional Resources
 
 For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.

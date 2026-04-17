@@ -80,14 +80,14 @@ All columns use `pd.NA` (nullable) for boolean/integer fields and `np.nan` for f
 
 | DataFrame Column | Short Name | dtype | Updates | Description |
 |---|---|---|---|---|
-| `ms_support_zone_low` | `support_zone_low` | `float64` | per boundary | Lower bound of the nearest support zone. Derived from the lowest wick (low) of the anchor down-wave, extended if a double-bottom pattern exists. |
+| `ms_support_zone_low` | `support_zone_low` | `float64` | per boundary | Lower bound of the nearest support zone. Derived from the lowest wick (low) of the anchor down-wave, and extended to include a preceding same-side wick **only when that preceding wave's wick range actually overlaps** the anchor's. Price-level proximity alone (i.e. a qualified double bottom with disjoint wicks) does *not* extend the zone — qualification and geometry are decoupled. |
 | `ms_support_zone_high` | `support_zone_high` | `float64` | per boundary | Upper bound of the nearest support zone. Corresponds to the LCO body level of the anchor down-wave. |
-| `ms_support_is_double` | `support_is_double` | `boolean` | per boundary | True when the nearest support zone qualifies as a double-bottom pattern -- a preceding bottom wave's wick range overlaps the current zone and no intervening wave made a deeper low. |
+| `ms_support_is_double` | `support_is_double` | `boolean` | per boundary | True when the nearest support zone qualifies as a double bottom. A pair of lows qualifies when (a) no intervening wave made a deeper low and (b) the absolute price distance is within `tolerance_atr_multiple × atr[anchor.low_idx]` (default 0.3 × ATR) — or within `tolerance_pct_fallback × anchor.low` (default 0.4 %) when ATR is unavailable. The lookback horizon is `double_bottom_proximity` (default 2) preceding same-side waves, which admits the canonical W-pattern with one intermediate non-violating swing. |
 | `ms_support_overlap_count` | `support_overlap_count` | `Int32` | per boundary | Number of older down-waves whose bottom wick ranges overlap the nearest support zone. Higher counts suggest the zone has been tested more frequently. |
 | `ms_support_zone_anchor_time` | `support_zone_anchor_time` | `Int64` | per boundary | Epoch milliseconds of the anchor candle's open_time for the nearest support zone. Useful for tracking zone age. |
 | `ms_resistance_zone_low` | `resistance_zone_low` | `float64` | per boundary | Lower bound of the nearest resistance zone. Corresponds to the HCO body level of the anchor up-wave. |
-| `ms_resistance_zone_high` | `resistance_zone_high` | `float64` | per boundary | Upper bound of the nearest resistance zone. Derived from the highest wick (high) of the anchor up-wave, extended if a double-top pattern exists. |
-| `ms_resistance_is_double` | `resistance_is_double` | `boolean` | per boundary | True when the nearest resistance zone qualifies as a double-top pattern -- a preceding top wave's wick range overlaps the current zone and no intervening wave made a higher high. |
+| `ms_resistance_zone_high` | `resistance_zone_high` | `float64` | per boundary | Upper bound of the nearest resistance zone. Derived from the highest wick (high) of the anchor up-wave, and extended to include a preceding same-side wick **only when that preceding wave's wick range actually overlaps** the anchor's. See the support mirror for the wick-vs-qualification decoupling. |
+| `ms_resistance_is_double` | `resistance_is_double` | `boolean` | per boundary | True when the nearest resistance zone qualifies as a double top. Mirror of `ms_support_is_double`: qualification is price-proximity based (ATR × multiple, falling back to percentage of `anchor.high`), no intervening higher high is allowed, and `double_top_proximity` (default 2) sets the lookback horizon — admits the M-pattern with one intermediate non-violating lower high. |
 | `ms_resistance_overlap_count` | `resistance_overlap_count` | `Int32` | per boundary | Number of older up-waves whose top wick ranges overlap the nearest resistance zone. Higher counts indicate more frequent tests of the level. |
 | `ms_resistance_zone_anchor_time` | `resistance_zone_anchor_time` | `Int64` | per boundary | Epoch milliseconds of the anchor candle's open_time for the nearest resistance zone. |
 | `ms_zone_quality_support` | `zone_quality_support` | `float64` | per boundary | Composite quality score [0, 10] for the nearest support zone. Factors: overlap count, double-bottom status, ATR-relative width, recency decay, and touch count. Higher is stronger. |
@@ -145,7 +145,14 @@ Unlike the HH/HL booleans (per-boundary values constant until the next wave conf
 
 ### Zone Semantics
 
-Support/resistance zone columns reflect the *nearest* (most recently anchored) zone. Zones are built from overlapping wick ranges across bottom-waves (support) or top-waves (resistance). The `is_double` flag and `overlap_count` serve as zone-strength indicators. When no zone exists, all zone columns are `NaN` / `pd.NA`.
+Support/resistance zone columns reflect the *nearest* (most recently anchored) zone. Zones are built from overlapping wick ranges across bottom-waves (support) or top-waves (resistance). The `is_double` flag and `overlap_count` serve as zone-strength indicators — importantly, they measure *different* things:
+
+- `is_double` is **price-level proximity**: "does a preceding same-side wave's extreme sit within a tolerance band around the anchor's extreme, with no violating swing in between?". Tolerance is ATR-derived (`tolerance_atr_multiple × atr[anchor.{low,high}_idx]`, default 0.3 × ATR) with a percentage-of-price fallback (default 0.4 %).
+- `overlap_count` is **wick geometry**: the number of preceding same-side wicks that actually overlap the zone's range. A qualified double bottom with disjoint wicks will have `is_double=True` but not contribute to `overlap_count`, and will not extend the zone bounds.
+
+Internally, zones are queried via `MarketStructureHelper.get_support_zones(atr_arr=...)` / `get_resistance_zones(atr_arr=...)`; the Freqtrade projector passes the column's `atr` array through, so both columns share a single ATR time-series.
+
+When no zone exists, all zone columns are `NaN` / `pd.NA`.
 
 ### Warm-Up Behavior
 
