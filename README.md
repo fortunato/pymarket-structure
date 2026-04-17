@@ -1,6 +1,7 @@
 # market-structure
 
 [![CI](https://github.com/fortunato/pymarket-structure/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/fortunato/pymarket-structure/actions/workflows/ci.yml)
+[![Deploy to GitHub Pages](https://github.com/fortunato/pymarket-structure/actions/workflows/pages.yml/badge.svg)](https://github.com/fortunato/pymarket-structure/actions/workflows/pages.yml)
 [![PyPI](https://img.shields.io/pypi/v/market-structure)](https://pypi.org/project/market-structure/)
 [![Python versions](https://img.shields.io/pypi/pyversions/market-structure)](https://pypi.org/project/market-structure/)
 [![License](https://img.shields.io/pypi/l/market-structure)](LICENSE)
