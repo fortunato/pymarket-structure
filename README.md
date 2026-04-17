@@ -3,8 +3,8 @@
 [![CI](https://github.com/fortunato/pymarket-structure/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/fortunato/pymarket-structure/actions/workflows/ci.yml)
 [![Deploy to GitHub Pages](https://github.com/fortunato/pymarket-structure/actions/workflows/pages.yml/badge.svg)](https://github.com/fortunato/pymarket-structure/actions/workflows/pages.yml)
 [![PyPI](https://img.shields.io/pypi/v/market-structure)](https://pypi.org/project/market-structure/)
-[![Python versions](https://img.shields.io/pypi/pyversions/market-structure)](https://pypi.org/project/market-structure/)
-[![License](https://img.shields.io/pypi/l/market-structure)](LICENSE)
+[![Python versions](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Ffortunato%2Fpymarket-structure%2Fmain%2Fpyproject.toml)](https://github.com/fortunato/pymarket-structure)
+[![License](https://img.shields.io/github/license/fortunato/pymarket-structure)](LICENSE)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 Python library for market structure analysis — swings, trends, support/resistance zones, break/retest/flip signals. Works with any OHLCV DataFrame. Includes a [Freqtrade](https://www.freqtrade.io/) integration.
@@ -130,6 +130,12 @@ uv run just hooks              # run all pre-commit hooks against every file
 ```
 
 > If your shell has the project's venv activated (`source .venv/bin/activate`), you can drop the `uv run` prefix and just type `just check`, `pytest`, `ruff check`, etc. directly. Most editors (PyCharm, VS Code) auto-activate the venv once the interpreter is configured.
+
+## Support
+
+If this library saves you time or helps your trading, consider buying me a coffee.
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/fortunato)
 
 ## License
 
