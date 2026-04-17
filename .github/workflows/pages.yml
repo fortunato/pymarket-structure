@@ -31,14 +31,13 @@ jobs:
         with:
           node-version-file: frontend/.nvmrc
 
-      - name: Clear npm cache (workaround npm/cli#9245)
-        run: npm cache clean --force
+      - uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Build
-        run: npx ng build --base-href /pymarket-structure/
+        run: ./node_modules/.bin/ng build --base-href /pymarket-structure/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
