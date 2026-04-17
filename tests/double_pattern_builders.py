@@ -1,4 +1,4 @@
-"""Synthetic fixture builders for the 004-robust-double-patterns suite.
+"""Synthetic fixture builders for the double-patterns suite.
 
 Each builder constructs a ``MarketStructureHelper`` with a known wave
 structure by feeding synthetic candles through ``register_candle``. The
@@ -56,7 +56,7 @@ def _c(
 
 
 def build_nan_atr_bottoms() -> tuple[MarketStructureHelper, np.ndarray]:
-    """CR-007: ATR array is all-NaN. Tolerance must fall through to the
+    """ATR array is all-NaN. Tolerance must fall through to the
     percentage fallback via the ``np.isfinite(atr_val)`` guard in
     ``_double_pattern_tolerance``. Uses the same wave layout as
     ``build_tight_disjoint_bottoms`` (lows 0.15 apart). Percentage
@@ -83,7 +83,7 @@ def build_nan_atr_bottoms() -> tuple[MarketStructureHelper, np.ndarray]:
 
 
 def build_negative_atr_bottoms() -> tuple[MarketStructureHelper, np.ndarray]:
-    """CR-008: ATR array contains negative values. Tolerance must fall
+    """ATR array contains negative values. Tolerance must fall
     through to the percentage fallback via the ``atr_val > 0`` guard in
     ``_double_pattern_tolerance``. Same wave layout as
     ``build_tight_disjoint_bottoms``. Percentage fallback:
@@ -110,7 +110,7 @@ def build_negative_atr_bottoms() -> tuple[MarketStructureHelper, np.ndarray]:
 
 
 def build_tight_disjoint_bottoms() -> tuple[MarketStructureHelper, np.ndarray]:
-    """D-8 item 1: two lows 0.15 apart, wick ranges disjoint.
+    """Two lows 0.15 apart, wick ranges disjoint.
 
     Wave layout (down-up-down):
         bar 0: down-wave-0 — single candle; low=100.00, body_bottom=100.05
@@ -145,7 +145,7 @@ def build_tight_disjoint_bottoms() -> tuple[MarketStructureHelper, np.ndarray]:
 
 
 def build_wide_far_bottoms() -> tuple[MarketStructureHelper, np.ndarray]:
-    """D-8 item 2: two lows 2.0 apart with wide overlapping wicks.
+    """Two lows 2.0 apart with wide overlapping wicks.
 
     Wave layout (down-up-down):
         bar 0: down-wave-0 single candle; low=100.00, body_bottom=103.00
@@ -179,7 +179,7 @@ def build_wide_far_bottoms() -> tuple[MarketStructureHelper, np.ndarray]:
 
 
 def build_exact_tie_bottoms() -> tuple[MarketStructureHelper, np.ndarray]:
-    """D-8 item 3: two swing lows at the same price. Tolerance is inclusive at 0.
+    """Two swing lows at the same price. Tolerance is inclusive at 0.
 
     Wave layout (down-up-down):
         bar 0: down-wave-0 single candle; low=100.00, body_bottom=101.00
@@ -206,7 +206,7 @@ def build_exact_tie_bottoms() -> tuple[MarketStructureHelper, np.ndarray]:
 
 
 def build_zero_atr_bottoms() -> tuple[MarketStructureHelper, np.ndarray]:
-    """D-8 item 5 (flat-market): ATR is zero everywhere, lows are near-equal.
+    """Flat-market: ATR is zero everywhere, lows are near-equal.
 
     Two lows 0.2 apart. Tolerance under zero-ATR falls through to
     ``tolerance_pct_fallback * anchor.low.low`` ≈ 0.4 → pair qualifies.
@@ -346,12 +346,12 @@ def build_zero_atr_tops() -> tuple[MarketStructureHelper, np.ndarray]:
 
 
 # ---------------------------------------------------------------------------
-# US2 fixtures — default-proximity bump (1 → 2)
+# Default-proximity bump (1 → 2) fixtures
 # ---------------------------------------------------------------------------
 
 
 def build_w_pattern_with_intermediate() -> tuple[MarketStructureHelper, np.ndarray]:
-    """D-8 item 4: classical W-pattern with one intermediate non-violating low.
+    """Classical W-pattern with one intermediate non-violating low.
 
     Three down-waves: L1 at 100, intermediate L2 at 100.5 (higher than L1),
     L3 at 100.1 (matches L1 within tolerance). Under proximity=1 the
@@ -431,12 +431,12 @@ def build_m_pattern_with_intermediate() -> tuple[MarketStructureHelper, np.ndarr
 
 
 # ---------------------------------------------------------------------------
-# Edge-case fixtures (D-8 items 7-11)
+# Edge-case fixtures
 # ---------------------------------------------------------------------------
 
 
 def build_first_swing_only() -> tuple[MarketStructureHelper, np.ndarray]:
-    """D-8 item 7: registry holds exactly one down-wave. No preceding same-side
+    """Registry holds exactly one down-wave. No preceding same-side
     wave exists, so the double-pattern body must short-circuit without crashing
     and produce a zone with ``is_double=False``.
     """
@@ -453,7 +453,7 @@ def build_first_swing_only() -> tuple[MarketStructureHelper, np.ndarray]:
 
 
 def build_short_atr_array() -> tuple[MarketStructureHelper, np.ndarray]:
-    """D-8 item 8: ``atr_arr`` shorter than the DataFrame. Out-of-bounds indices
+    """``atr_arr`` shorter than the DataFrame. Out-of-bounds indices
     must fall through to the percentage fallback without raising.
 
     Uses the same wave layout as ``build_tight_disjoint_bottoms`` (lows at 100.00
@@ -483,7 +483,7 @@ def build_short_atr_array() -> tuple[MarketStructureHelper, np.ndarray]:
 
 
 def build_regime_shift_atr() -> tuple[MarketStructureHelper, np.ndarray]:
-    """D-8 item 9: anchor's ``low_idx`` ATR ≈ 5x preceding's ``low_idx`` ATR.
+    """Anchor's ``low_idx`` ATR ≈ 5x preceding's ``low_idx`` ATR.
 
     Lows at 100.00 (wave-0, bar 0) and 100.10 (wave-2, bar 3).
     ATR values: bar 0 = 0.05 (low-vol regime); bar 3 = 0.5 (high-vol regime).
@@ -493,7 +493,7 @@ def build_regime_shift_atr() -> tuple[MarketStructureHelper, np.ndarray]:
     A correct implementation reads ``atr_arr[anchor.low_idx]`` → qualifies.
     A bug that used ``atr_arr[preceding.low_idx]`` or
     ``atr_arr[anchor.formation_bar_index]`` would reject — this fixture
-    pins the D-2 design intent.
+    pins the design intent.
     """
     h = MarketStructureHelper()
     h.register_candle(
@@ -515,13 +515,13 @@ def build_regime_shift_atr() -> tuple[MarketStructureHelper, np.ndarray]:
     # high-vol regime. Bar 4 (anchor's formation_bar_index, the flip
     # candle) swings BACK to low-vol — so a buggy implementation that
     # keyed on ``formation_bar_index`` instead of ``low_idx`` would
-    # reject the pair. Pinning D-2's design intent.
+    # reject the pair. Pinning the design intent.
     atr_arr = np.array([0.05, 0.05, 0.50, 0.50, 0.05])
     return h, atr_arr
 
 
 def build_adjacent_wicks() -> tuple[MarketStructureHelper, np.ndarray]:
-    """D-8 item 10: two bottom wick ranges share an edge exactly.
+    """Two bottom wick ranges share an edge exactly.
 
     Wave-0 range ends at 100.20; wave-2 range starts at 100.20. Inclusive
     ``range_overlaps`` returns True. The deeper-wick extension should fire
@@ -548,7 +548,7 @@ def build_adjacent_wicks() -> tuple[MarketStructureHelper, np.ndarray]:
 
 
 def build_nearest_not_deepest() -> tuple[MarketStructureHelper, np.ndarray]:
-    """D-8 item 11: three down-waves, both slot-0 and slot-1 qualify.
+    """Three down-waves, both slot-0 and slot-1 qualify.
 
     Wave-0 (oldest; slot 1 from anchor): low=99.90 — "deepest" (lowest)
     Wave-2 (middle; slot 0 from anchor): low=100.05
@@ -595,4 +595,427 @@ def build_nearest_not_deepest() -> tuple[MarketStructureHelper, np.ndarray]:
         _c(8000, open=105.00, high=108.00, low=104.00, close=107.00, histogram_value=0.5)
     )
     atr_arr = np.ones(8)
+    return h, atr_arr
+
+
+# ---------------------------------------------------------------------------
+# Body-anchored zone geometry fixtures
+# ---------------------------------------------------------------------------
+
+
+def build_long_lower_wick_anchor() -> tuple[MarketStructureHelper, np.ndarray]:
+    """Support anchor with a body far above the wick extreme.
+
+    Wave layout (down-up-down-up):
+        bar 0: down-wave-0 — low=90.00 (extreme wick), close=98.00, open=99.00
+                body = (98.00, 99.00), wick extends 8 points below body
+        bar 1-2: up-wave
+        bar 3: down-wave-2 — unrelated, moderate depth
+        bar 4: up — confirms wave-2
+
+    After body-anchoring: zone.range should be (98.00, 99.00)
+    Wick range: (90.00, 98.00)
+    """
+    h = MarketStructureHelper()
+    h.register_candle(
+        _c(1000, open=99.00, high=100.00, low=90.00, close=98.00, histogram_value=-0.5)
+    )
+    h.register_candle(
+        _c(2000, open=105.00, high=110.00, low=104.00, close=109.00, histogram_value=0.3)
+    )
+    h.register_candle(
+        _c(3000, open=109.00, high=112.00, low=108.00, close=111.00, histogram_value=0.2)
+    )
+    h.register_candle(
+        _c(4000, open=103.00, high=103.00, low=101.00, close=103.00, histogram_value=-0.4)
+    )
+    h.register_candle(
+        _c(5000, open=105.00, high=108.00, low=104.00, close=107.00, histogram_value=0.5)
+    )
+    atr_arr = np.ones(5)
+    return h, atr_arr
+
+
+def build_long_upper_wick_anchor() -> tuple[MarketStructureHelper, np.ndarray]:
+    """Resistance anchor with a body far below the wick extreme.
+
+    Wave layout (up-down-up-down):
+        bar 0: up-wave-0 — high=110.00 (extreme wick), close=102.00, open=101.00
+                body = (101.00, 102.00), wick extends 8 points above body
+        bar 1-2: down-wave
+        bar 3: up-wave-2 — unrelated, moderate height
+        bar 4: down — confirms wave-2
+
+    After body-anchoring: zone.range should be (101.00, 102.00)
+    Wick range: (102.00, 110.00)
+    """
+    h = MarketStructureHelper()
+    h.register_candle(
+        _c(1000, open=101.00, high=110.00, low=100.00, close=102.00, histogram_value=0.5)
+    )
+    h.register_candle(
+        _c(2000, open=95.00, high=96.00, low=90.00, close=91.00, histogram_value=-0.3)
+    )
+    h.register_candle(
+        _c(3000, open=91.00, high=92.00, low=88.00, close=89.00, histogram_value=-0.2)
+    )
+    h.register_candle(_c(4000, open=97.00, high=97.00, low=96.00, close=97.00, histogram_value=0.4))
+    h.register_candle(
+        _c(5000, open=93.00, high=94.00, low=92.00, close=93.00, histogram_value=-0.5)
+    )
+    atr_arr = np.ones(5)
+    return h, atr_arr
+
+
+def build_doji_anchor() -> tuple[MarketStructureHelper, np.ndarray]:
+    """Support anchor whose lowest-close candle has open == close (doji).
+
+    body = (100.00, 100.00), zero width. Wick = (95.00, 100.00).
+    """
+    h = MarketStructureHelper()
+    h.register_candle(
+        _c(1000, open=100.00, high=102.00, low=95.00, close=100.00, histogram_value=-0.5)
+    )
+    h.register_candle(
+        _c(2000, open=105.00, high=110.00, low=104.00, close=109.00, histogram_value=0.3)
+    )
+    h.register_candle(
+        _c(3000, open=109.00, high=112.00, low=108.00, close=111.00, histogram_value=0.2)
+    )
+    h.register_candle(
+        _c(4000, open=103.00, high=103.00, low=101.00, close=103.00, histogram_value=-0.4)
+    )
+    h.register_candle(
+        _c(5000, open=105.00, high=108.00, low=104.00, close=107.00, histogram_value=0.5)
+    )
+    atr_arr = np.ones(5)
+    return h, atr_arr
+
+
+def build_single_candle_wave() -> tuple[MarketStructureHelper, np.ndarray]:
+    """Wave with a single candle. Zone must equal that candle's body.
+
+    Wave-0 is a single down candle: open=100.00, close=97.00, low=95.00, high=101.00.
+    body = (97.00, 100.00). Wick extends to 95.00.
+    The immediate flip to up after one bar means wave-0 has exactly one candle.
+    """
+    h = MarketStructureHelper()
+    h.register_candle(
+        _c(1000, open=100.00, high=101.00, low=95.00, close=97.00, histogram_value=-0.5)
+    )
+    h.register_candle(
+        _c(2000, open=105.00, high=110.00, low=104.00, close=109.00, histogram_value=0.3)
+    )
+    h.register_candle(
+        _c(3000, open=109.00, high=112.00, low=108.00, close=111.00, histogram_value=0.2)
+    )
+    h.register_candle(
+        _c(4000, open=103.00, high=103.00, low=101.00, close=103.00, histogram_value=-0.4)
+    )
+    h.register_candle(
+        _c(5000, open=105.00, high=108.00, low=104.00, close=107.00, histogram_value=0.5)
+    )
+    atr_arr = np.ones(5)
+    return h, atr_arr
+
+
+def build_marubozu_anchor() -> tuple[MarketStructureHelper, np.ndarray]:
+    """Support anchor whose lowest-close candle is a pure bear marubozu.
+
+    open == high and close == low -> body == full range.
+    body = (95.00, 100.00), wick = (95.00, 100.00) — identical.
+    """
+    h = MarketStructureHelper()
+    h.register_candle(
+        _c(1000, open=100.00, high=100.00, low=95.00, close=95.00, histogram_value=-0.5)
+    )
+    h.register_candle(
+        _c(2000, open=105.00, high=110.00, low=104.00, close=109.00, histogram_value=0.3)
+    )
+    h.register_candle(
+        _c(3000, open=109.00, high=112.00, low=108.00, close=111.00, histogram_value=0.2)
+    )
+    h.register_candle(
+        _c(4000, open=103.00, high=103.00, low=101.00, close=103.00, histogram_value=-0.4)
+    )
+    h.register_candle(
+        _c(5000, open=105.00, high=108.00, low=104.00, close=107.00, histogram_value=0.5)
+    )
+    atr_arr = np.ones(5)
+    return h, atr_arr
+
+
+def build_tie_break_lowest_close() -> tuple[MarketStructureHelper, np.ndarray]:
+    """Two candles in the same down-wave tie on lowest close.
+
+    bar 0: open=101.00, close=98.00, low=95.00 (first candle, close=98.00)
+    bar 1: open=99.00, close=98.00, low=96.00 (second candle, same close=98.00)
+    Both in same down-wave. The earlier candle (bar 0) should be the anchor.
+    body of bar 0 = (98.00, 101.00).
+    """
+    h = MarketStructureHelper()
+    # Two candles in the down-wave, both with close=98.00
+    h.register_candle(
+        _c(1000, open=101.00, high=102.00, low=95.00, close=98.00, histogram_value=-0.5)
+    )
+    h.register_candle(
+        _c(2000, open=99.00, high=100.00, low=96.00, close=98.00, histogram_value=-0.3)
+    )
+    # Flip to up
+    h.register_candle(
+        _c(3000, open=105.00, high=110.00, low=104.00, close=109.00, histogram_value=0.3)
+    )
+    h.register_candle(
+        _c(4000, open=109.00, high=112.00, low=108.00, close=111.00, histogram_value=0.2)
+    )
+    # Another down wave to provide context
+    h.register_candle(
+        _c(5000, open=103.00, high=103.00, low=101.00, close=103.00, histogram_value=-0.4)
+    )
+    h.register_candle(
+        _c(6000, open=105.00, high=108.00, low=104.00, close=107.00, histogram_value=0.5)
+    )
+    atr_arr = np.ones(6)
+    return h, atr_arr
+
+
+def build_body_overlap_disjoint_wicks_bottoms() -> tuple[MarketStructureHelper, np.ndarray]:
+    """Two bottom anchors whose body ranges overlap but wick ranges are disjoint.
+
+    Wave layout (down-up-down-up):
+        bar 0: down-wave-0 — open=101, close=98.1, low=98.0, high=101.5
+               body = (98.1, 101.0); wick_range = (98.0, 98.1)
+        bar 1-2: up-wave
+        bar 3: down-wave-2 — open=102, close=99, low=98.2, high=102.5
+               body = (99.0, 102.0); wick_range = (98.2, 99.0)
+        bar 4: up — confirms wave-2
+
+    Bodies overlap at (99.0, 101.0).
+    Wick ranges (98.0, 98.1) vs (98.2, 99.0) — disjoint (98.1 < 98.2).
+    Wave lows: 98.0 vs 98.2, diff=0.2 ≤ 0.3 ATR tolerance.
+    """
+    h = MarketStructureHelper()
+    h.register_candle(
+        _c(1000, open=101.00, high=101.50, low=98.00, close=98.10, histogram_value=-0.5)
+    )
+    h.register_candle(
+        _c(2000, open=105.00, high=110.00, low=104.00, close=109.00, histogram_value=0.3)
+    )
+    h.register_candle(
+        _c(3000, open=109.00, high=112.00, low=108.00, close=111.00, histogram_value=0.2)
+    )
+    h.register_candle(
+        _c(4000, open=102.00, high=102.50, low=98.20, close=99.00, histogram_value=-0.4)
+    )
+    h.register_candle(
+        _c(5000, open=105.00, high=108.00, low=104.00, close=107.00, histogram_value=0.5)
+    )
+    atr_arr = np.ones(5)
+    return h, atr_arr
+
+
+def build_body_overlap_disjoint_wicks_tops() -> tuple[MarketStructureHelper, np.ndarray]:
+    """Two top anchors whose body ranges overlap but wick ranges are disjoint.
+
+    Wave layout (up-down-up-down):
+        bar 0: up-wave-0 — open=99, close=101.9, high=102.0, low=98.5
+               body = (99.0, 101.9); wick_range = (101.9, 102.0)
+        bar 1-2: down-wave
+        bar 3: up-wave-2 — open=98, close=101, high=101.8, low=97.5
+               body = (98.0, 101.0); wick_range = (101.0, 101.8)
+        bar 4: down — confirms wave-2
+
+    Bodies overlap at (99.0, 101.0).
+    Wick ranges (101.9, 102.0) vs (101.0, 101.8) — disjoint (101.8 < 101.9).
+    Wave highs: 102.0 vs 101.8, diff=0.2 ≤ 0.3 ATR tolerance.
+    """
+    h = MarketStructureHelper()
+    h.register_candle(
+        _c(1000, open=99.00, high=102.00, low=98.50, close=101.90, histogram_value=0.5)
+    )
+    h.register_candle(
+        _c(2000, open=95.00, high=96.00, low=90.00, close=91.00, histogram_value=-0.3)
+    )
+    h.register_candle(
+        _c(3000, open=91.00, high=92.00, low=88.00, close=89.00, histogram_value=-0.2)
+    )
+    h.register_candle(
+        _c(4000, open=98.00, high=101.80, low=97.50, close=101.00, histogram_value=0.4)
+    )
+    h.register_candle(
+        _c(5000, open=93.00, high=94.00, low=92.00, close=93.00, histogram_value=-0.5)
+    )
+    atr_arr = np.ones(5)
+    return h, atr_arr
+
+
+def build_body_disjoint_wick_overlap_bottoms() -> tuple[MarketStructureHelper, np.ndarray]:
+    """Two bottom anchors whose body ranges are disjoint but wick ranges overlap.
+
+    Wave layout (down-up-down-up):
+        bar 0: down-wave-0 — open=96, close=95, low=93, high=97
+               body = (95.0, 96.0); wick_range = (93.0, 95.0)
+        bar 1-2: up-wave
+        bar 3: down-wave-2 — open=98, close=97, low=94, high=99
+               body = (97.0, 98.0); wick_range = (94.0, 97.0)
+        bar 4: up — confirms wave-2
+
+    Bodies (95,96) vs (97,98) — disjoint (96 < 97).
+    Wick ranges (93,95) vs (94,97) — overlap at (94,95).
+    Wave lows: 93 vs 94, diff=1.0. ATR=5, tolerance=1.5 → qualifies.
+    """
+    h = MarketStructureHelper()
+    h.register_candle(
+        _c(1000, open=96.00, high=97.00, low=93.00, close=95.00, histogram_value=-0.5)
+    )
+    h.register_candle(
+        _c(2000, open=105.00, high=110.00, low=104.00, close=109.00, histogram_value=0.3)
+    )
+    h.register_candle(
+        _c(3000, open=109.00, high=112.00, low=108.00, close=111.00, histogram_value=0.2)
+    )
+    h.register_candle(
+        _c(4000, open=98.00, high=99.00, low=94.00, close=97.00, histogram_value=-0.4)
+    )
+    h.register_candle(
+        _c(5000, open=105.00, high=108.00, low=104.00, close=107.00, histogram_value=0.5)
+    )
+    atr_arr = np.full(5, 5.0)
+    return h, atr_arr
+
+
+def build_body_disjoint_wick_overlap_tops() -> tuple[MarketStructureHelper, np.ndarray]:
+    """Two top anchors whose body ranges are disjoint but wick ranges overlap.
+
+    Wave layout (up-down-up-down):
+        bar 0: up-wave-0 — open=103, close=104, high=107, low=102
+               body = (103.0, 104.0); wick_range = (104.0, 107.0)
+        bar 1-2: down-wave
+        bar 3: up-wave-2 — open=101, close=102, high=106, low=100
+               body = (101.0, 102.0); wick_range = (102.0, 106.0)
+        bar 4: down — confirms wave-2
+
+    Bodies (103,104) vs (101,102) — disjoint (102 < 103).
+    Wick ranges (104,107) vs (102,106) — overlap at (104,106).
+    Wave highs: 107 vs 106, diff=1.0. ATR=5, tolerance=1.5 → qualifies.
+    """
+    h = MarketStructureHelper()
+    h.register_candle(
+        _c(1000, open=103.00, high=107.00, low=102.00, close=104.00, histogram_value=0.5)
+    )
+    h.register_candle(
+        _c(2000, open=95.00, high=96.00, low=90.00, close=91.00, histogram_value=-0.3)
+    )
+    h.register_candle(
+        _c(3000, open=91.00, high=92.00, low=88.00, close=89.00, histogram_value=-0.2)
+    )
+    h.register_candle(
+        _c(4000, open=101.00, high=106.00, low=100.00, close=102.00, histogram_value=0.4)
+    )
+    h.register_candle(
+        _c(5000, open=93.00, high=94.00, low=92.00, close=93.00, histogram_value=-0.5)
+    )
+    atr_arr = np.full(5, 5.0)
+    return h, atr_arr
+
+
+def build_body_touching_bottoms() -> tuple[MarketStructureHelper, np.ndarray]:
+    """Two bottom anchors whose body ranges exactly touch (closed interval).
+
+    Wave layout (down-up-down-up):
+        bar 0: down-wave-0 — open=102, close=100, low=97, high=103
+               body = (100.0, 102.0)
+        bar 1-2: up-wave
+        bar 3: down-wave-2 — open=100, close=98, low=95, high=101
+               body = (98.0, 100.0)
+        bar 4: up — confirms wave-2
+
+    Bodies: wave-0 body_bottom=100 == wave-2 body_top=100 → touching.
+    range_overlaps uses <= so this qualifies as overlap.
+    Wave lows: 97 vs 95, diff=2.0. ATR=10, tolerance=3.0 → qualifies.
+    """
+    h = MarketStructureHelper()
+    h.register_candle(
+        _c(1000, open=102.00, high=103.00, low=97.00, close=100.00, histogram_value=-0.5)
+    )
+    h.register_candle(
+        _c(2000, open=108.00, high=115.00, low=107.00, close=114.00, histogram_value=0.3)
+    )
+    h.register_candle(
+        _c(3000, open=114.00, high=118.00, low=113.00, close=117.00, histogram_value=0.2)
+    )
+    h.register_candle(
+        _c(4000, open=100.00, high=101.00, low=95.00, close=98.00, histogram_value=-0.4)
+    )
+    h.register_candle(
+        _c(5000, open=105.00, high=108.00, low=104.00, close=107.00, histogram_value=0.5)
+    )
+    atr_arr = np.full(5, 10.0)
+    return h, atr_arr
+
+
+def build_body_touching_tops() -> tuple[MarketStructureHelper, np.ndarray]:
+    """Two top anchors whose body ranges exactly touch (closed interval).
+
+    Wave layout (up-down-up-down):
+        bar 0: up-wave-0 — open=98, close=100, high=103, low=97
+               body = (98.0, 100.0)
+        bar 1-2: down-wave
+        bar 3: up-wave-2 — open=100, close=102, high=105, low=99
+               body = (100.0, 102.0)
+        bar 4: down — confirms wave-2
+
+    Bodies: wave-0 body_top=100 == wave-2 body_bottom=100 → touching.
+    range_overlaps uses <= so this qualifies as overlap.
+    Wave highs: 103 vs 105, diff=2.0. ATR=10, tolerance=3.0 → qualifies.
+    """
+    h = MarketStructureHelper()
+    h.register_candle(
+        _c(1000, open=98.00, high=103.00, low=97.00, close=100.00, histogram_value=0.5)
+    )
+    h.register_candle(
+        _c(2000, open=92.00, high=93.00, low=85.00, close=86.00, histogram_value=-0.3)
+    )
+    h.register_candle(
+        _c(3000, open=86.00, high=87.00, low=82.00, close=83.00, histogram_value=-0.2)
+    )
+    h.register_candle(
+        _c(4000, open=100.00, high=105.00, low=99.00, close=102.00, histogram_value=0.4)
+    )
+    h.register_candle(
+        _c(5000, open=93.00, high=94.00, low=92.00, close=93.00, histogram_value=-0.5)
+    )
+    atr_arr = np.full(5, 10.0)
+    return h, atr_arr
+
+
+def build_tie_break_highest_close() -> tuple[MarketStructureHelper, np.ndarray]:
+    """Two candles in the same up-wave tie on highest close.
+
+    bar 0: open=99.00, close=102.00, high=105.00 (first candle, close=102.00)
+    bar 1: open=101.00, close=102.00, high=106.00 (second candle, same close=102.00)
+    Both in same up-wave. The earlier candle (bar 0) should be the anchor.
+    body of bar 0 = (99.00, 102.00).
+    """
+    h = MarketStructureHelper()
+    # Two candles in the up-wave, both with close=102.00
+    h.register_candle(
+        _c(1000, open=99.00, high=105.00, low=98.00, close=102.00, histogram_value=0.5)
+    )
+    h.register_candle(
+        _c(2000, open=101.00, high=106.00, low=100.00, close=102.00, histogram_value=0.3)
+    )
+    # Flip to down
+    h.register_candle(
+        _c(3000, open=95.00, high=96.00, low=90.00, close=91.00, histogram_value=-0.3)
+    )
+    h.register_candle(
+        _c(4000, open=91.00, high=92.00, low=88.00, close=89.00, histogram_value=-0.2)
+    )
+    # Another up wave
+    h.register_candle(_c(5000, open=97.00, high=97.00, low=96.00, close=97.00, histogram_value=0.4))
+    h.register_candle(
+        _c(6000, open=93.00, high=94.00, low=92.00, close=93.00, histogram_value=-0.5)
+    )
+    atr_arr = np.ones(6)
     return h, atr_arr

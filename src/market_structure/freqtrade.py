@@ -83,8 +83,12 @@ VALID_COLUMNS: frozenset[str] = frozenset(
         # Support/resistance zones
         "support_zone_low",
         "support_zone_high",
+        "support_zone_wick_low",
+        "support_zone_wick_high",
         "resistance_zone_low",
         "resistance_zone_high",
+        "resistance_zone_wick_low",
+        "resistance_zone_wick_high",
         "support_is_double",
         "resistance_is_double",
         "support_overlap_count",
@@ -341,6 +345,8 @@ def _snapshot_zones(
         {
             "support_zone_low",
             "support_zone_high",
+            "support_zone_wick_low",
+            "support_zone_wick_high",
             "support_is_double",
             "support_overlap_count",
             "support_zone_anchor_time",
@@ -352,6 +358,8 @@ def _snapshot_zones(
         {
             "resistance_zone_low",
             "resistance_zone_high",
+            "resistance_zone_wick_low",
+            "resistance_zone_wick_high",
             "resistance_is_double",
             "resistance_overlap_count",
             "resistance_zone_anchor_time",
@@ -396,6 +404,10 @@ def _snapshot_zones(
         snap["support_zone_low"] = sz.range[0] if sz else np.nan
     if "support_zone_high" in col_set:
         snap["support_zone_high"] = sz.range[1] if sz else np.nan
+    if "support_zone_wick_low" in col_set:
+        snap["support_zone_wick_low"] = sz.wick_range[0] if sz else np.nan
+    if "support_zone_wick_high" in col_set:
+        snap["support_zone_wick_high"] = sz.wick_range[1] if sz else np.nan
     if "support_is_double" in col_set:
         snap["support_is_double"] = sz.is_double if sz else pd.NA
     if "support_overlap_count" in col_set:
@@ -408,6 +420,10 @@ def _snapshot_zones(
         snap["resistance_zone_low"] = rz.range[0] if rz else np.nan
     if "resistance_zone_high" in col_set:
         snap["resistance_zone_high"] = rz.range[1] if rz else np.nan
+    if "resistance_zone_wick_low" in col_set:
+        snap["resistance_zone_wick_low"] = rz.wick_range[0] if rz else np.nan
+    if "resistance_zone_wick_high" in col_set:
+        snap["resistance_zone_wick_high"] = rz.wick_range[1] if rz else np.nan
     if "resistance_is_double" in col_set:
         snap["resistance_is_double"] = rz.is_double if rz else pd.NA
     if "resistance_overlap_count" in col_set:
@@ -1002,8 +1018,12 @@ def _compute_snapshots(
         {
             "support_zone_low",
             "support_zone_high",
+            "support_zone_wick_low",
+            "support_zone_wick_high",
             "resistance_zone_low",
             "resistance_zone_high",
+            "resistance_zone_wick_low",
+            "resistance_zone_wick_high",
             "support_is_double",
             "resistance_is_double",
             "support_overlap_count",
@@ -1258,8 +1278,12 @@ _TIER2_DEFAULTS: dict[str, object] = {
     "wave_count": 0,
     "support_zone_low": np.nan,
     "support_zone_high": np.nan,
+    "support_zone_wick_low": np.nan,
+    "support_zone_wick_high": np.nan,
     "resistance_zone_low": np.nan,
     "resistance_zone_high": np.nan,
+    "resistance_zone_wick_low": np.nan,
+    "resistance_zone_wick_high": np.nan,
     "support_is_double": pd.NA,
     "resistance_is_double": pd.NA,
     "support_overlap_count": pd.NA,
@@ -1316,8 +1340,12 @@ def _broadcast_tier2(
         "wave_count": "Int32",
         "support_zone_low": "float64",
         "support_zone_high": "float64",
+        "support_zone_wick_low": "float64",
+        "support_zone_wick_high": "float64",
         "resistance_zone_low": "float64",
         "resistance_zone_high": "float64",
+        "resistance_zone_wick_low": "float64",
+        "resistance_zone_wick_high": "float64",
         "support_is_double": "boolean",
         "resistance_is_double": "boolean",
         "support_overlap_count": "Int32",
@@ -1695,6 +1723,8 @@ def _live_zone(col: str, ctx: _LiveContext) -> object:
     if col in {
         "support_zone_low",
         "support_zone_high",
+        "support_zone_wick_low",
+        "support_zone_wick_high",
         "support_is_double",
         "support_overlap_count",
         "support_zone_anchor_time",
@@ -1706,6 +1736,10 @@ def _live_zone(col: str, ctx: _LiveContext) -> object:
             return sz.range[0] if sz else np.nan
         if col == "support_zone_high":
             return sz.range[1] if sz else np.nan
+        if col == "support_zone_wick_low":
+            return sz.wick_range[0] if sz else np.nan
+        if col == "support_zone_wick_high":
+            return sz.wick_range[1] if sz else np.nan
         if col == "support_is_double":
             return sz.is_double if sz else pd.NA
         if col == "support_overlap_count":
@@ -1723,6 +1757,8 @@ def _live_zone(col: str, ctx: _LiveContext) -> object:
     if col in {
         "resistance_zone_low",
         "resistance_zone_high",
+        "resistance_zone_wick_low",
+        "resistance_zone_wick_high",
         "resistance_is_double",
         "resistance_overlap_count",
         "resistance_zone_anchor_time",
@@ -1734,6 +1770,10 @@ def _live_zone(col: str, ctx: _LiveContext) -> object:
             return rz.range[0] if rz else np.nan
         if col == "resistance_zone_high":
             return rz.range[1] if rz else np.nan
+        if col == "resistance_zone_wick_low":
+            return rz.wick_range[0] if rz else np.nan
+        if col == "resistance_zone_wick_high":
+            return rz.wick_range[1] if rz else np.nan
         if col == "resistance_is_double":
             return rz.is_double if rz else pd.NA
         if col == "resistance_overlap_count":

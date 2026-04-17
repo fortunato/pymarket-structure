@@ -28,16 +28,20 @@ export interface EnrichedBar {
 	ms_high_since: number | null;
 	ms_low_since: number | null;
 
-	// Support zones
+	// Support zones (body-anchored)
 	ms_support_zone_low: number | null;
 	ms_support_zone_high: number | null;
+	ms_support_zone_wick_low: number | null;
+	ms_support_zone_wick_high: number | null;
 	ms_support_is_double: boolean | null;
 	ms_support_overlap_count: number | null;
 	ms_support_zone_anchor_time: number | null;
 
-	// Resistance zones
+	// Resistance zones (body-anchored)
 	ms_resistance_zone_low: number | null;
 	ms_resistance_zone_high: number | null;
+	ms_resistance_zone_wick_low: number | null;
+	ms_resistance_zone_wick_high: number | null;
 	ms_resistance_is_double: boolean | null;
 	ms_resistance_overlap_count: number | null;
 	ms_resistance_zone_anchor_time: number | null;
@@ -64,7 +68,7 @@ export interface EnrichedBar {
 	ms_wave_length: number | null;
 	ms_wave_count: number | null;
 
-	// --- New columns (spec 002) ---
+	// --- Additional columns ---
 
 	// Trend Structure
 	ms_structure_break_level: number | null;

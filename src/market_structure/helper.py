@@ -726,29 +726,58 @@ class MarketStructureHelper:
 
     @staticmethod
     def get_bottom_range(wave: Wave) -> tuple[float, float]:
-        """Compute the wick-based price range for a bottom (support) zone.
+        """Body-anchored price range for a bottom (support) zone.
 
-        The zone spans from the lowest low in the wave up to the body
-        bottom of the LCO candle — i.e. ``min(close, open)`` of the
-        candle with the lowest close-or-open.
+        The anchor candle is the one with the lowest *close* in the wave
+        (close = settlement, the only consensus price per Auction Market
+        Theory — Steidlmayer / Dalton, *Mind Over Markets*).  The zone
+        spans the anchor candle's body:
+        ``(min(open, close), max(open, close))``.
+
+        Use :meth:`get_bottom_wick_range` for wick-based geometry
+        (Wyckoff stop placement beyond the spring wick).
         """
-        lco = wave.lowest_close_or_open
-        body_bottom = min(lco.close, lco.open)
-        low_bound = min(lco.low, wave.low.low)
-        return (low_bound, body_bottom)
+        anchor = wave.lowest_close
+        return (min(anchor.open, anchor.close), max(anchor.open, anchor.close))
 
     @staticmethod
     def get_top_range(wave: Wave) -> tuple[float, float]:
-        """Compute the wick-based price range for a top (resistance) zone.
+        """Body-anchored price range for a top (resistance) zone.
 
-        The zone spans from the body top of the HCO candle up to the
-        highest high in the wave — i.e. ``max(close, open)`` of the
-        candle with the highest close-or-open.
+        The anchor candle is the one with the highest *close* in the wave.
+        The zone spans the anchor candle's body:
+        ``(min(open, close), max(open, close))``.
+
+        Use :meth:`get_top_wick_range` for wick-based geometry
+        (Wyckoff stop placement beyond the wick extreme).
         """
-        hco = wave.highest_close_or_open
-        body_top = max(hco.close, hco.open)
-        high_bound = max(hco.high, wave.high.high)
-        return (body_top, high_bound)
+        anchor = wave.highest_close
+        return (min(anchor.open, anchor.close), max(anchor.open, anchor.close))
+
+    @staticmethod
+    def get_bottom_wick_range(wave: Wave) -> tuple[float, float]:
+        """Wick-based price range for a bottom (support) zone.
+
+        Returns ``(wave.low.low, min(anchor.close, anchor.open))``
+        where anchor is ``wave.lowest_close``.  This is the wick-extended
+        geometry — the four ``ms_*_zone_wick_*`` DataFrame columns carry
+        these values so consumers can place stops beyond the spring wick
+        (textbook Wyckoff stop placement).
+        """
+        anchor = wave.lowest_close
+        return (wave.low.low, min(anchor.close, anchor.open))
+
+    @staticmethod
+    def get_top_wick_range(wave: Wave) -> tuple[float, float]:
+        """Wick-based price range for a top (resistance) zone.
+
+        Returns ``(max(anchor.close, anchor.open), wave.high.high)``
+        where anchor is ``wave.highest_close``.  This is the wick-extended
+        geometry — the four ``ms_*_zone_wick_*`` DataFrame columns carry
+        these values so consumers can place stops beyond the wick extreme.
+        """
+        anchor = wave.highest_close
+        return (max(anchor.close, anchor.open), wave.high.high)
 
     @staticmethod
     def range_overlaps(a: tuple[float, float], b: tuple[float, float]) -> bool:
@@ -760,14 +789,14 @@ class MarketStructureHelper:
         return (b[0] <= a[0] <= b[1]) or (b[0] <= a[1] <= b[1]) or (a[0] <= b[0] and a[1] >= b[1])
 
     def _assert_alternation(self, anchor: Wave, preceding: Wave) -> None:
-        """Alternation invariant for the double-pattern body (FR-005).
+        """Alternation invariant for the double-pattern body.
 
         TSI-driven wave emission guarantees that same-side waves are
         separated by at least one opposite-side wave in
         ``_wave_registry``. An assertion failure here indicates a bug
         somewhere in the emission path, not a recoverable runtime
-        condition (see research.md D-7). Under ``python -O`` the assert
-        is stripped — this is intentional.
+        condition. Under ``python -O`` the assert is stripped — this
+        is intentional.
         """
         assert anchor.side == preceding.side, (
             f"double-pattern pair with mismatched sides: "
@@ -798,29 +827,30 @@ class MarketStructureHelper:
         tolerance_atr_multiple: float = 0.3,
         tolerance_pct_fallback: float = 0.004,
     ) -> list[Zone]:
-        """Identify support zones from overlapping bottom-wave wick ranges.
+        """Identify support zones from overlapping bottom-wave body ranges.
 
-        Walks bottom waves newest-to-oldest. For each, builds a wick
-        range via ``get_bottom_range`` and collects older bottoms whose
-        wicks overlap (the ``overlapping_low_wave_ids`` geometry list).
+        Walks bottom waves newest-to-oldest. For each, builds a
+        body-anchored range via ``get_bottom_range`` (the anchor
+        candle's body — accepted price per Auction Market Theory) and
+        collects older bottoms whose body ranges overlap (the
+        ``overlapping_low_wave_ids`` geometry list).
+
         A separate, price-proximity test decides whether the candidate
         is a double bottom: the anchor's low must be within
         ``tolerance`` of a preceding same-side wave's low and no
         intervening low may undercut the pair (``made_lower_low_between``).
-        When a candidate is qualified AND the two wicks overlap, the
-        zone range is extended down to include the deeper wick (FR-013
-        decoupling — qualification is "are these the same level",
-        geometry is "what price range did the market actually trade in").
+        When a candidate is qualified AND the two bodies overlap, the
+        zone range is extended to include the preceding body bottom.
+        Wick extrema are unioned across the pair into
+        ``Zone.wick_range`` for Wyckoff stop placement.
 
         Args:
             include_forming_wave: Include the in-flight wave if it's a
                 down-wave.
             double_bottom_proximity: How many preceding same-side waves
-                to consider for double-bottom labelling. Default raised
-                from ``1`` to ``2`` in the ``004-robust-double-patterns``
-                release so the canonical W-pattern with one intermediate
-                non-violating higher low is admitted out of the box
-                (FR-007/FR-008).
+                to consider for double-bottom labelling. Default ``2``
+                so the canonical W-pattern with one intermediate
+                non-violating higher low is admitted out of the box.
             filter_if_not_overlapping: If True, drop zones with zero
                 overlapping lows (no confirmation from older bottoms).
             only_include_most_recent_zone: If True, skip a wave whose
@@ -857,7 +887,7 @@ class MarketStructureHelper:
         opposite-side wave between them in ``_wave_registry``. The assert
         is a correctness tripwire for the TSI-driven emission path — under
         ``python -O`` it is stripped; if you rely on this invariant as a
-        production guardrail, do not run with ``-O`` (research.md D-7).
+        production guardrail, do not run with ``-O``.
         """
         params_key = (
             include_forming_wave,
@@ -884,6 +914,7 @@ class MarketStructureHelper:
 
         for idx, wave in enumerate(down_waves):
             current_range = list(self.get_bottom_range(wave))
+            current_wick_range = list(self.get_bottom_wick_range(wave))
             overlapping_lows: list[str] = []
             is_double = False
 
@@ -903,10 +934,7 @@ class MarketStructureHelper:
                 if wicks_overlap:
                     overlapping_lows.append(preceding_wave.id)
 
-                # New tolerance-based qualification predicate.
-                # Replaces the old wick-overlap test. Wick geometry is now
-                # decoupled from qualification — extension (below) only fires
-                # when wicks *actually* overlap.
+                # Tolerance-based qualification predicate.
                 if preceding_idx < double_bottom_proximity and not self.made_lower_low_between(
                     wave, preceding_wave
                 ):
@@ -920,8 +948,14 @@ class MarketStructureHelper:
                     )
                     if abs(preceding_wave.low.low - wave.low.low) <= tolerance:
                         is_double = True
-                        if wicks_overlap and preceding_wave.low.low < current_range[0]:
-                            current_range[0] = preceding_wave.low.low
+                        if wicks_overlap and bottom_range[0] < current_range[0]:
+                            current_range[0] = bottom_range[0]
+                        # Union wick extrema across the merged pair.
+                        prec_wick = self.get_bottom_wick_range(preceding_wave)
+                        if prec_wick[0] < current_wick_range[0]:
+                            current_wick_range[0] = prec_wick[0]
+                        if prec_wick[1] > current_wick_range[1]:
+                            current_wick_range[1] = prec_wick[1]
 
             # Find overlapping top waves.
             overlapping_highs: list[str] = [
@@ -933,6 +967,7 @@ class MarketStructureHelper:
             zones.append(
                 Zone(
                     range=(current_range[0], current_range[1]),
+                    wick_range=(current_wick_range[0], current_wick_range[1]),
                     anchor_wave_id=wave.id,
                     overlapping_low_wave_ids=tuple(overlapping_lows),
                     overlapping_high_wave_ids=tuple(overlapping_highs),
@@ -960,11 +995,11 @@ class MarketStructureHelper:
         tolerance_atr_multiple: float = 0.3,
         tolerance_pct_fallback: float = 0.004,
     ) -> list[Zone]:
-        """Identify resistance zones from overlapping top-wave wick ranges.
+        """Identify resistance zones from overlapping top-wave body ranges.
 
         Mirror of ``get_support_zones`` for tops / resistance. See that
         method's docstring for the full parameter contract (including
-        the new double-pattern tolerance semantics, the raised
+        the double-pattern tolerance semantics, the raised
         ``double_top_proximity`` default, the alternation ``assert``,
         and the ``python -O`` caveat). Differences: the ATR lookup
         here uses ``anchor.high_idx`` instead of ``anchor.low_idx``,
@@ -995,6 +1030,7 @@ class MarketStructureHelper:
 
         for idx, wave in enumerate(up_waves):
             current_range = list(self.get_top_range(wave))
+            current_wick_range = list(self.get_top_wick_range(wave))
             overlapping_highs: list[str] = []
             is_double = False
 
@@ -1010,8 +1046,8 @@ class MarketStructureHelper:
                 if wicks_overlap:
                     overlapping_highs.append(preceding_wave.id)
 
-                # New tolerance-based qualification predicate (FR-001, FR-002,
-                # FR-011). Mirrors the support-side flow in ``get_support_zones``.
+                # Tolerance-based qualification predicate.
+                # Mirrors the support-side flow in ``get_support_zones``.
                 if preceding_idx < double_top_proximity and not self.made_higher_high_between(
                     wave, preceding_wave
                 ):
@@ -1025,8 +1061,13 @@ class MarketStructureHelper:
                     )
                     if abs(preceding_wave.high.high - wave.high.high) <= tolerance:
                         is_double = True
-                        if wicks_overlap and preceding_wave.high.high > current_range[1]:
-                            current_range[1] = preceding_wave.high.high
+                        if wicks_overlap and top_range[1] > current_range[1]:
+                            current_range[1] = top_range[1]
+                        prec_wick = self.get_top_wick_range(preceding_wave)
+                        if prec_wick[0] < current_wick_range[0]:
+                            current_wick_range[0] = prec_wick[0]
+                        if prec_wick[1] > current_wick_range[1]:
+                            current_wick_range[1] = prec_wick[1]
 
             overlapping_lows: list[str] = [
                 w.id
@@ -1039,6 +1080,7 @@ class MarketStructureHelper:
             zones.append(
                 Zone(
                     range=(current_range[0], current_range[1]),
+                    wick_range=(current_wick_range[0], current_wick_range[1]),
                     anchor_wave_id=wave.id,
                     overlapping_low_wave_ids=tuple(overlapping_lows),
                     overlapping_high_wave_ids=tuple(overlapping_highs),

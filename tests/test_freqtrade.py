@@ -205,10 +205,14 @@ def _build_reference(raw: list[dict[str, object]]) -> pd.DataFrame:
             {
                 "support_zone_low": sz.range[0] if sz else np.nan,
                 "support_zone_high": sz.range[1] if sz else np.nan,
+                "support_zone_wick_low": sz.wick_range[0] if sz else np.nan,
+                "support_zone_wick_high": sz.wick_range[1] if sz else np.nan,
                 "support_is_double": sz.is_double if sz else pd.NA,
                 "support_overlap_count": len(sz.overlapping_low_wave_ids) if sz else pd.NA,
                 "resistance_zone_low": rz.range[0] if rz else np.nan,
                 "resistance_zone_high": rz.range[1] if rz else np.nan,
+                "resistance_zone_wick_low": rz.wick_range[0] if rz else np.nan,
+                "resistance_zone_wick_high": rz.wick_range[1] if rz else np.nan,
                 "resistance_is_double": rz.is_double if rz else pd.NA,
                 "resistance_overlap_count": (len(rz.overlapping_high_wave_ids) if rz else pd.NA),
             }
@@ -764,6 +768,32 @@ class TestPerBarParity:
         ref, proj = parity_data
         ref_vals = ref["resistance_zone_high"].to_numpy(dtype=float)
         proj_vals = proj["ms_resistance_zone_high"].to_numpy(dtype=float)
+        np.testing.assert_array_equal(ref_vals, proj_vals)
+
+    def test_support_zone_wick_low(self, parity_data: tuple[pd.DataFrame, pd.DataFrame]) -> None:
+        ref, proj = parity_data
+        ref_vals = ref["support_zone_wick_low"].to_numpy(dtype=float)
+        proj_vals = proj["ms_support_zone_wick_low"].to_numpy(dtype=float)
+        np.testing.assert_array_equal(ref_vals, proj_vals)
+
+    def test_support_zone_wick_high(self, parity_data: tuple[pd.DataFrame, pd.DataFrame]) -> None:
+        ref, proj = parity_data
+        ref_vals = ref["support_zone_wick_high"].to_numpy(dtype=float)
+        proj_vals = proj["ms_support_zone_wick_high"].to_numpy(dtype=float)
+        np.testing.assert_array_equal(ref_vals, proj_vals)
+
+    def test_resistance_zone_wick_low(self, parity_data: tuple[pd.DataFrame, pd.DataFrame]) -> None:
+        ref, proj = parity_data
+        ref_vals = ref["resistance_zone_wick_low"].to_numpy(dtype=float)
+        proj_vals = proj["ms_resistance_zone_wick_low"].to_numpy(dtype=float)
+        np.testing.assert_array_equal(ref_vals, proj_vals)
+
+    def test_resistance_zone_wick_high(
+        self, parity_data: tuple[pd.DataFrame, pd.DataFrame]
+    ) -> None:
+        ref, proj = parity_data
+        ref_vals = ref["resistance_zone_wick_high"].to_numpy(dtype=float)
+        proj_vals = proj["ms_resistance_zone_wick_high"].to_numpy(dtype=float)
         np.testing.assert_array_equal(ref_vals, proj_vals)
 
     def test_support_is_double(self, parity_data: tuple[pd.DataFrame, pd.DataFrame]) -> None:

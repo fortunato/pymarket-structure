@@ -102,8 +102,12 @@
 		<details class="section zone-support" open>
 			<summary class="section-header">Support Zone</summary>
 			<div class="row">
-				<span class="label">Range <app-hint text="Price range of the nearest support zone — expect buying interest when price enters this band" /></span>
+				<span class="label">Range <app-hint text="Accepted price band of the nearest support zone (anchor candle body) — expect buying interest when price enters this band" /></span>
 				<span class="value mono">{{ fmtPrice(b.ms_support_zone_low) }} - {{ fmtPrice(b.ms_support_zone_high) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Wick Bounds <app-hint text="Wick-extended extrema of the support zone — useful for stop placement beyond the spring wick (Wyckoff)" /></span>
+				<span class="value mono">{{ fmtPrice(b.ms_support_zone_wick_low) }} - {{ fmtPrice(b.ms_support_zone_wick_high) }}</span>
 			</div>
 			<span class="badge double" [class.hidden]="!b.ms_support_is_double" title="Two swing lows at nearly the same price — stronger support level">Double Bottom</span>
 			<div class="row">
@@ -115,8 +119,12 @@
 		<details class="section zone-resistance" open>
 			<summary class="section-header">Resistance Zone</summary>
 			<div class="row">
-				<span class="label">Range <app-hint text="Price range of the nearest resistance zone — expect selling pressure when price enters this band" /></span>
+				<span class="label">Range <app-hint text="Accepted price band of the nearest resistance zone (anchor candle body) — expect selling pressure when price enters this band" /></span>
 				<span class="value mono">{{ fmtPrice(b.ms_resistance_zone_low) }} - {{ fmtPrice(b.ms_resistance_zone_high) }}</span>
+			</div>
+			<div class="row">
+				<span class="label">Wick Bounds <app-hint text="Wick-extended extrema of the resistance zone — useful for stop placement beyond the wick extreme" /></span>
+				<span class="value mono">{{ fmtPrice(b.ms_resistance_zone_wick_low) }} - {{ fmtPrice(b.ms_resistance_zone_wick_high) }}</span>
 			</div>
 			<span class="badge double" [class.hidden]="!b.ms_resistance_is_double" title="Two swing highs at nearly the same price — stronger resistance level">Double Top</span>
 			<div class="row">

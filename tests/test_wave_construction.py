@@ -359,7 +359,7 @@ class TestMultipleWaves:
 
 # ---------------------------------------------------------------------------
 # Alternation invariant — runtime assert guards the double-pattern body
-# from malformed registries (FR-005, FR-006, SC-005).
+# from malformed registries.
 # ---------------------------------------------------------------------------
 
 
@@ -398,9 +398,9 @@ def _minimal_wave(wave_id: str, side: str, low: float, high: float, fbi: int) ->
 
 
 def test_alternation_assertion_fires_on_adjacent_same_side_waves() -> None:
-    """T032 — two adjacent same-side waves in ``_wave_registry`` (no
+    """Two adjacent same-side waves in ``_wave_registry`` (no
     opposite-side wave between them) must trigger ``AssertionError`` when
-    the double-pattern body runs. Guarantees SC-005.
+    the double-pattern body runs.
     """
     h = MarketStructureHelper()
     w0 = _minimal_wave("w-0", "down", low=100.0, high=101.0, fbi=0)
@@ -414,7 +414,7 @@ def test_alternation_assertion_fires_on_adjacent_same_side_waves() -> None:
 
 
 def test_alternation_assertion_fires_on_adjacent_same_side_waves_top() -> None:
-    """T033 — mirror of T032 for the resistance path."""
+    """Mirror of the above test for the resistance path."""
     h = MarketStructureHelper()
     w0 = _minimal_wave("w-0", "up", low=99.0, high=110.0, fbi=0)
     w1 = _minimal_wave("w-1", "up", low=99.0, high=109.9, fbi=1)

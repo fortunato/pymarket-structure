@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `attach_market_structure` wrapper projects up to 63 columns onto a Freqtrade DataFrame. Each column is prefixed with `ms_` in the DataFrame (e.g., the short name `wave_side` becomes `ms_wave_side`).
+The `attach_market_structure` wrapper projects up to 67 columns onto a Freqtrade DataFrame. Each column is prefixed with `ms_` in the DataFrame (e.g., the short name `wave_side` becomes `ms_wave_side`).
 
 All columns use `pd.NA` (nullable) for boolean/integer fields and `np.nan` for float fields when insufficient wave history exists (warm-up period).
 
@@ -80,15 +80,19 @@ All columns use `pd.NA` (nullable) for boolean/integer fields and `np.nan` for f
 
 | DataFrame Column | Short Name | dtype | Updates | Description |
 |---|---|---|---|---|
-| `ms_support_zone_low` | `support_zone_low` | `float64` | per boundary | Lower bound of the nearest support zone. Derived from the lowest wick (low) of the anchor down-wave, and extended to include a preceding same-side wick **only when that preceding wave's wick range actually overlaps** the anchor's. Price-level proximity alone (i.e. a qualified double bottom with disjoint wicks) does *not* extend the zone — qualification and geometry are decoupled. |
-| `ms_support_zone_high` | `support_zone_high` | `float64` | per boundary | Upper bound of the nearest support zone. Corresponds to the LCO body level of the anchor down-wave. |
+| `ms_support_zone_low` | `support_zone_low` | `float64` | per boundary | Lower bound of the nearest support zone. Body-anchored: `min(anchor.open, anchor.close)` where anchor is the candle with the lowest close in the wave (Auction Market Theory — close is settlement/consensus price). Extended to include a preceding same-side body bottom **only when that preceding wave's body range actually overlaps** the anchor's. Price-level proximity alone (i.e. a qualified double bottom with disjoint bodies) does *not* extend the zone — qualification and geometry are decoupled. |
+| `ms_support_zone_high` | `support_zone_high` | `float64` | per boundary | Upper bound of the nearest support zone. Body-anchored: `max(anchor.open, anchor.close)` of the anchor candle. |
 | `ms_support_is_double` | `support_is_double` | `boolean` | per boundary | True when the nearest support zone qualifies as a double bottom. A pair of lows qualifies when (a) no intervening wave made a deeper low and (b) the absolute price distance is within `tolerance_atr_multiple × atr[anchor.low_idx]` (default 0.3 × ATR) — or within `tolerance_pct_fallback × anchor.low` (default 0.4 %) when ATR is unavailable. The lookback horizon is `double_bottom_proximity` (default 2) preceding same-side waves, which admits the canonical W-pattern with one intermediate non-violating swing. |
-| `ms_support_overlap_count` | `support_overlap_count` | `Int32` | per boundary | Number of older down-waves whose bottom wick ranges overlap the nearest support zone. Higher counts suggest the zone has been tested more frequently. |
+| `ms_support_overlap_count` | `support_overlap_count` | `Int32` | per boundary | Number of older down-waves whose bottom body ranges overlap the nearest support zone. Higher counts suggest the zone has been tested more frequently. |
 | `ms_support_zone_anchor_time` | `support_zone_anchor_time` | `Int64` | per boundary | Epoch milliseconds of the anchor candle's open_time for the nearest support zone. Useful for tracking zone age. |
-| `ms_resistance_zone_low` | `resistance_zone_low` | `float64` | per boundary | Lower bound of the nearest resistance zone. Corresponds to the HCO body level of the anchor up-wave. |
-| `ms_resistance_zone_high` | `resistance_zone_high` | `float64` | per boundary | Upper bound of the nearest resistance zone. Derived from the highest wick (high) of the anchor up-wave, and extended to include a preceding same-side wick **only when that preceding wave's wick range actually overlaps** the anchor's. See the support mirror for the wick-vs-qualification decoupling. |
+| `ms_support_zone_wick_low` | `support_zone_wick_low` | `float64` | per boundary | Lower wick bound of the nearest support zone: the wave's absolute low (`wave.low.low`). Useful for Wyckoff stop placement beyond the spring wick. For a marubozu anchor (body == range), collapses to `support_zone_low`. |
+| `ms_support_zone_wick_high` | `support_zone_wick_high` | `float64` | per boundary | Upper wick bound of the nearest support zone: `min(anchor.open, anchor.close)` — the body bottom of the anchor candle. Equals `support_zone_low` for the primary anchor; may differ when unioned across a double-bottom pair. |
+| `ms_resistance_zone_low` | `resistance_zone_low` | `float64` | per boundary | Lower bound of the nearest resistance zone. Body-anchored: `min(anchor.open, anchor.close)` of the anchor candle with the highest close in the wave. |
+| `ms_resistance_zone_high` | `resistance_zone_high` | `float64` | per boundary | Upper bound of the nearest resistance zone. Body-anchored: `max(anchor.open, anchor.close)`. Extended to include a preceding same-side body top **only when that preceding wave's body range actually overlaps** the anchor's. See the support mirror for the body-vs-qualification decoupling. |
 | `ms_resistance_is_double` | `resistance_is_double` | `boolean` | per boundary | True when the nearest resistance zone qualifies as a double top. Mirror of `ms_support_is_double`: qualification is price-proximity based (ATR × multiple, falling back to percentage of `anchor.high`), no intervening higher high is allowed, and `double_top_proximity` (default 2) sets the lookback horizon — admits the M-pattern with one intermediate non-violating lower high. |
-| `ms_resistance_overlap_count` | `resistance_overlap_count` | `Int32` | per boundary | Number of older up-waves whose top wick ranges overlap the nearest resistance zone. Higher counts indicate more frequent tests of the level. |
+| `ms_resistance_zone_wick_low` | `resistance_zone_wick_low` | `float64` | per boundary | Lower wick bound of the nearest resistance zone: `max(anchor.open, anchor.close)` — the body top of the anchor candle. |
+| `ms_resistance_zone_wick_high` | `resistance_zone_wick_high` | `float64` | per boundary | Upper wick bound of the nearest resistance zone: the wave's absolute high (`wave.high.high`). Useful for stop placement beyond the wick extreme. |
+| `ms_resistance_overlap_count` | `resistance_overlap_count` | `Int32` | per boundary | Number of older up-waves whose top body ranges overlap the nearest resistance zone. Higher counts indicate more frequent tests of the level. |
 | `ms_resistance_zone_anchor_time` | `resistance_zone_anchor_time` | `Int64` | per boundary | Epoch milliseconds of the anchor candle's open_time for the nearest resistance zone. |
 | `ms_zone_quality_support` | `zone_quality_support` | `float64` | per boundary | Composite quality score [0, 10] for the nearest support zone. Factors: overlap count, double-bottom status, ATR-relative width, recency decay, and touch count. Higher is stronger. |
 | `ms_zone_quality_resistance` | `zone_quality_resistance` | `float64` | per boundary | Composite quality score [0, 10] for the nearest resistance zone. Same formula as support quality. |
@@ -145,10 +149,14 @@ Unlike the HH/HL booleans (per-boundary values constant until the next wave conf
 
 ### Zone Semantics
 
-Support/resistance zone columns reflect the *nearest* (most recently anchored) zone. Zones are built from overlapping wick ranges across bottom-waves (support) or top-waves (resistance). The `is_double` flag and `overlap_count` serve as zone-strength indicators — importantly, they measure *different* things:
+Support/resistance zone columns reflect the *nearest* (most recently anchored) zone. Zones are built from the body of the anchor candle — the candle with the lowest close (support) or highest close (resistance) in the wave. This "body-anchored" geometry follows Auction Market Theory (Steidlmayer / Dalton): the body represents accepted price; wicks are rejected excursion.
+
+The four `ms_*_zone_wick_*` columns preserve the wick-extended extrema for Wyckoff stop placement (place stops beyond the spring wick, not just beyond the body zone).
+
+The `is_double` flag and `overlap_count` serve as zone-strength indicators — importantly, they measure *different* things:
 
 - `is_double` is **price-level proximity**: "does a preceding same-side wave's extreme sit within a tolerance band around the anchor's extreme, with no violating swing in between?". Tolerance is ATR-derived (`tolerance_atr_multiple × atr[anchor.{low,high}_idx]`, default 0.3 × ATR) with a percentage-of-price fallback (default 0.4 %).
-- `overlap_count` is **wick geometry**: the number of preceding same-side wicks that actually overlap the zone's range. A qualified double bottom with disjoint wicks will have `is_double=True` but not contribute to `overlap_count`, and will not extend the zone bounds.
+- `overlap_count` is **body geometry**: the number of preceding same-side body ranges that actually overlap the zone's range. A qualified double bottom with disjoint bodies will have `is_double=True` but not contribute to `overlap_count`, and will not extend the zone bounds.
 
 Internally, zones are queried via `MarketStructureHelper.get_support_zones(atr_arr=...)` / `get_resistance_zones(atr_arr=...)`; the Freqtrade projector passes the column's `atr` array through, so both columns share a single ATR time-series.
 
@@ -344,7 +352,7 @@ In **backtest mode** (first call per pair), all columns are projected historical
 
 In **live mode** (subsequent calls), only the current helper state is projected. All rows receive the same current-state value -- correct because Freqtrade strategies only inspect the last row for live decisions.
 
-The `columns` parameter accepts a tuple of short names to project only the columns your strategy needs. Omitting unused columns (especially zone columns, which require the most computation) reduces overhead. Pass `None` (the default) to project all 63.
+The `columns` parameter accepts a tuple of short names to project only the columns your strategy needs. Omitting unused columns (especially zone columns, which require the most computation) reduces overhead. Pass `None` (the default) to project all 67.
 
 ### Additional Parameters
 
@@ -404,7 +412,7 @@ The `store` dict is shared with the main function but keyed differently — MTF 
 | dtype | Columns | NA sentinel |
 |---|---|---|
 | `object` (str) | `wave_side`, `wave_id` | `""` (live) |
-| `float64` | `last_top_price`, `last_bottom_price`, `pullback_correction_factor`, `pullback_breakout_level`, `pullback_price_diff`, `support_zone_low`, `support_zone_high`, `resistance_zone_low`, `resistance_zone_high`, `forming_wave_high`, `forming_wave_low`, `atr`, `structure_break_level`, `distance_to_support`, `distance_to_resistance`, `wave_amplitude`, `wave_slope`, `zone_quality_support`, `zone_quality_resistance`, `pullback_atr_factor`, `wave_volume`, `wave_volume_ratio`, `wave_amplitude_ratio` | `NaN` |
+| `float64` | `last_top_price`, `last_bottom_price`, `pullback_correction_factor`, `pullback_breakout_level`, `pullback_price_diff`, `support_zone_low`, `support_zone_high`, `support_zone_wick_low`, `support_zone_wick_high`, `resistance_zone_low`, `resistance_zone_high`, `resistance_zone_wick_low`, `resistance_zone_wick_high`, `forming_wave_high`, `forming_wave_low`, `atr`, `structure_break_level`, `distance_to_support`, `distance_to_resistance`, `wave_amplitude`, `wave_slope`, `zone_quality_support`, `zone_quality_resistance`, `pullback_atr_factor`, `wave_volume`, `wave_volume_ratio`, `wave_amplitude_ratio` | `NaN` |
 | `boolean` (nullable) | `made_higher_high`, `made_higher_low`, `made_lower_high`, `made_lower_low`, `bearish_divergence`, `bullish_divergence`, `support_is_double`, `resistance_is_double`, `structure_break_confirmed`, `sfp_high`, `sfp_low`, `zone_break_support`, `zone_break_resistance`, `zone_retest_support`, `zone_retest_resistance`, `zone_flip_support`, `zone_flip_resistance`, `zone_failed_retest_support`, `zone_failed_retest_resistance`, `three_push_up`, `three_push_down` | `pd.NA` |
 | `Int32` (nullable) | `high_since`, `low_since`, `pullback_length`, `wave_length`, `wave_count`, `support_overlap_count`, `resistance_overlap_count`, `bars_since_last_top`, `bars_since_last_bottom`, `zone_retest_count_support`, `zone_retest_count_resistance`, `trend_wave_count`, `trend_duration` | `pd.NA` |
 | `Int64` (nullable) | `support_zone_anchor_time`, `resistance_zone_anchor_time` | `pd.NA` |

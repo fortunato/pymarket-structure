@@ -82,6 +82,7 @@ class TestZone:
     def test_range_is_tuple_not_list(self) -> None:
         z = Zone(
             range=(99.0, 101.0),
+            wick_range=(99.0, 101.0),
             anchor_wave_id="w1",
             overlapping_low_wave_ids=(),
             overlapping_high_wave_ids=(),
