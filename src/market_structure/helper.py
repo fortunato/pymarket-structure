@@ -927,11 +927,11 @@ class MarketStructureHelper:
             # Match against all preceding (older) bottoms.
             for preceding_idx, preceding_wave in enumerate(down_waves[idx + 1 :]):
                 bottom_range = self.get_bottom_range(preceding_wave)
-                wicks_overlap = self.range_overlaps(
+                bodies_overlap = self.range_overlaps(
                     bottom_range, (current_range[0], current_range[1])
                 )
 
-                if wicks_overlap:
+                if bodies_overlap:
                     overlapping_lows.append(preceding_wave.id)
 
                 # Tolerance-based qualification predicate.
@@ -948,9 +948,10 @@ class MarketStructureHelper:
                     )
                     if abs(preceding_wave.low.low - wave.low.low) <= tolerance:
                         is_double = True
-                        if wicks_overlap and bottom_range[0] < current_range[0]:
+                        if bodies_overlap and bottom_range[0] < current_range[0]:
                             current_range[0] = bottom_range[0]
-                        # Union wick extrema across the merged pair.
+                        # Union wick extrema across all qualifying predecessors
+                        # so the Wyckoff stop sits below the deepest spring.
                         prec_wick = self.get_bottom_wick_range(preceding_wave)
                         if prec_wick[0] < current_wick_range[0]:
                             current_wick_range[0] = prec_wick[0]
@@ -1041,9 +1042,11 @@ class MarketStructureHelper:
 
             for preceding_idx, preceding_wave in enumerate(up_waves[idx + 1 :]):
                 top_range = self.get_top_range(preceding_wave)
-                wicks_overlap = self.range_overlaps(top_range, (current_range[0], current_range[1]))
+                bodies_overlap = self.range_overlaps(
+                    top_range, (current_range[0], current_range[1])
+                )
 
-                if wicks_overlap:
+                if bodies_overlap:
                     overlapping_highs.append(preceding_wave.id)
 
                 # Tolerance-based qualification predicate.
@@ -1061,8 +1064,9 @@ class MarketStructureHelper:
                     )
                     if abs(preceding_wave.high.high - wave.high.high) <= tolerance:
                         is_double = True
-                        if wicks_overlap and top_range[1] > current_range[1]:
+                        if bodies_overlap and top_range[1] > current_range[1]:
                             current_range[1] = top_range[1]
+                        # Union wick extrema across all qualifying predecessors.
                         prec_wick = self.get_top_wick_range(preceding_wave)
                         if prec_wick[0] < current_wick_range[0]:
                             current_wick_range[0] = prec_wick[0]

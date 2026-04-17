@@ -85,8 +85,8 @@ class Zone:
     range: tuple[float, float]  # (low_price, high_price) — body-anchored inclusive bounds
     wick_range: tuple[float, float]  # (low_price, high_price) — wick-based extrema
     anchor_wave_id: str  # wave that defines the primary zone boundary
-    overlapping_low_wave_ids: tuple[str, ...]  # down-waves whose lows fall within this zone
-    overlapping_high_wave_ids: tuple[str, ...]  # up-waves whose highs fall within this zone
+    overlapping_low_wave_ids: tuple[str, ...]  # down-waves whose body ranges overlap this zone
+    overlapping_high_wave_ids: tuple[str, ...]  # up-waves whose body ranges overlap this zone
     is_double: bool  # double bottom (support) or double top (resistance)
     side: Direction  # "down" = support zone; "up" = resistance zone
 
