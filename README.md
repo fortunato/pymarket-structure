@@ -7,11 +7,44 @@
 [![License](https://img.shields.io/pypi/l/market-structure)](LICENSE)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
-Python library for market structure analysis — swings, trends, support/resistance zones, break/retest/flip signals. Designed for use with [Freqtrade](https://www.freqtrade.io/).
+Python library for market structure analysis — swings, trends, support/resistance zones, break/retest/flip signals. Works with any OHLCV DataFrame. Includes a [Freqtrade](https://www.freqtrade.io/) integration.
 
 **[Live Demo](https://fortunato.github.io/pymarket-structure/)** — interactive chart viewer showing market structure overlays on real price data.
 
 ![Market Structure Viewer — SOL/USDT 4h showing support/resistance zones, structure break, bearish divergence, and wave metrics](docs/images/market-structure-viewer.png)
+
+## Quick start
+
+```python
+import pandas as pd
+from market_structure.hydrate import hydrate
+from market_structure.tsi import compute_tsi
+from market_structure.atr import _compute_atr
+
+# df: any OHLCV DataFrame with open, high, low, close, volume columns
+df["tsi_hist"] = compute_tsi(df["close"])["tsi_histogram"]
+helper = hydrate(df, histogram_key="tsi_hist")
+
+atr = _compute_atr(df["high"].to_numpy(), df["low"].to_numpy(),
+                    df["close"].to_numpy(), period=14)
+
+for z in helper.get_support_zones(atr_arr=atr):
+    body_low, body_high = z.range       # body-anchored (accepted price)
+    wick_low, wick_high = z.wick_range   # wick extrema (for stop placement)
+    print(f"{z.anchor_wave_id}  body=({body_low:.2f}, {body_high:.2f})  "
+          f"wick=({wick_low:.2f}, {wick_high:.2f})  double={z.is_double}")
+```
+
+### Freqtrade integration
+
+For Freqtrade strategies, a single call projects all 67 `ms_*` columns onto the DataFrame:
+
+```python
+from market_structure.freqtrade import attach_market_structure
+
+df = attach_market_structure(df, histogram_key="tsi_hist")
+# df now has ms_support_zone_low, ms_wave_side, ms_is_trending_up, etc.
+```
 
 ## Backtest: market structure as a strategy filter
 
@@ -40,7 +73,7 @@ profit while cutting drawdown by ~4 percentage points. Backtest data and
 
 ## Documentation
 
-- [Freqtrade Column Reference](docs/freqtrade-columns.md) — all 63 `ms_*` columns projected onto the DataFrame, with dtypes, tier descriptions, and strategy examples.
+- [Column Reference](docs/freqtrade-columns.md) — all 67 `ms_*` columns projected onto the DataFrame, with dtypes, tier descriptions, and strategy examples.
 
 ## Install
 
@@ -49,12 +82,6 @@ pip install market-structure
 ```
 
 > The PyPI distribution is `market-structure`; the import name is `market_structure`. The GitHub repo is named `pymarket-structure` for historical reasons.
-
-```python
-from market_structure import MarketStructureHelper
-
-ms = MarketStructureHelper()
-```
 
 ## Development
 
