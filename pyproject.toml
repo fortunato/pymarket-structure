@@ -1,6 +1,6 @@
 [project]
 name = "market-structure"
-version = "0.1.0rc2"
+version = "0.1.0"
 description = "Python library for market structure analysis — swings, trends, support/resistance zones, break/retest/flip signals. Works with any OHLCV DataFrame."
 readme = "README.md"
 authors = [
