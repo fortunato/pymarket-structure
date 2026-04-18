@@ -95,7 +95,7 @@
 					},
 					"defaultConfiguration": "development",
 					"options": {
-						"allowedHosts": ["localhost"]
+						"allowedHosts": "all"
 					}
 				}
 			}
