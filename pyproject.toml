@@ -1,12 +1,31 @@
 [project]
 name = "market-structure"
-version = "0.1.0rc1"
-description = "Python library for market structure analysis — swings, trends, support/resistance zones, break/retest/flip signals. Works with freqtrade."
+version = "0.1.0rc2"
+description = "Python library for market structure analysis — swings, trends, support/resistance zones, break/retest/flip signals. Works with any OHLCV DataFrame."
 readme = "README.md"
 authors = [
     { name = "Fortunato Geelhoed", email = "f.geelhoed@gmail.com" }
 ]
 requires-python = ">=3.12"
+license = "MIT"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Science/Research",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[project.urls]
+Repository = "https://github.com/fortunato/pymarket-structure"
+Documentation = "https://github.com/fortunato/pymarket-structure/blob/main/docs/freqtrade-columns.md"
+"Live Demo" = "https://fortunato.github.io/pymarket-structure/"
+Changelog = "https://github.com/fortunato/pymarket-structure/blob/main/CHANGELOG.md"
+Issues = "https://github.com/fortunato/pymarket-structure/issues"
+
 dependencies = [
     "numpy>=1.26",
     "pandas>=2.1",

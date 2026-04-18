@@ -11,7 +11,7 @@ Python library for market structure analysis — swings, trends, support/resista
 
 **[Live Demo](https://fortunato.github.io/pymarket-structure/)** — interactive chart viewer showing market structure overlays on real price data.
 
-![Market Structure Viewer — SOL/USDT 4h showing support/resistance zones, structure break, bearish divergence, and wave metrics](docs/images/market-structure-viewer.png)
+![Market Structure Viewer — SOL/USDT 4h showing support/resistance zones, structure break, bearish divergence, and wave metrics](https://raw.githubusercontent.com/fortunato/pymarket-structure/main/docs/images/market-structure-viewer.png)
 
 ## Quick start
 
@@ -66,14 +66,14 @@ but skips market structure entirely.
 
 The filter blocked 44 low-quality entries (mostly would-be stop-outs), nearly doubling
 profit while cutting drawdown by ~4 percentage points. Backtest data and
-[results for all three strategies](refs/freqtrade/README.md) live in
-[`refs/freqtrade/`](refs/freqtrade/).
+[results for all three strategies](https://github.com/fortunato/pymarket-structure/blob/main/refs/freqtrade/README.md) live in
+[`refs/freqtrade/`](https://github.com/fortunato/pymarket-structure/tree/main/refs/freqtrade/).
 
 > **Disclaimer:** This is educational software, not financial advice. Past backtest performance does not guarantee future results. Parameters are curve-fit to a specific historical window. Do not trade real capital based on these examples without independent validation and risk assessment.
 
 ## Documentation
 
-- [Column Reference](docs/freqtrade-columns.md) — all 67 `ms_*` columns projected onto the DataFrame, with dtypes, tier descriptions, and strategy examples.
+- [Column Reference](https://github.com/fortunato/pymarket-structure/blob/main/docs/freqtrade-columns.md) — all 67 `ms_*` columns projected onto the DataFrame, with dtypes, tier descriptions, and strategy examples.
 
 ## Install
 
@@ -81,7 +81,7 @@ profit while cutting drawdown by ~4 percentage points. Backtest data and
 pip install market-structure
 ```
 
-> The PyPI distribution is `market-structure`; the import name is `market_structure`. The GitHub repo is named `pymarket-structure` for historical reasons.
+> The PyPI distribution is `market-structure`; the import name is `market_structure`. The GitHub repo is named `pymarket-structure`.
 
 ## Development
 
@@ -139,4 +139,4 @@ If this library saves you time or helps your trading, consider buying me a coffe
 
 ## License
 
-See [LICENSE](LICENSE).
+See [LICENSE](https://github.com/fortunato/pymarket-structure/blob/main/LICENSE).
