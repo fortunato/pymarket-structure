@@ -19,7 +19,7 @@ concurrency:
 jobs:
   build:
     name: Build frontend
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     defaults:
       run:
         working-directory: frontend
@@ -30,14 +30,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: frontend/.nvmrc
-
-      - uses: oven-sh/setup-bun@v2
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: npm ci
 
       - name: Build
-        run: ./node_modules/.bin/ng build --base-href /pymarket-structure/
+        run: npx ng build --base-href /pymarket-structure/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
@@ -47,7 +47,7 @@ jobs:
   deploy:
     name: Deploy
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
