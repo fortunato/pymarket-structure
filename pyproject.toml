@@ -18,6 +18,10 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.1",
+]
 
 [project.urls]
 Repository = "https://github.com/fortunato/pymarket-structure"
@@ -25,11 +29,6 @@ Documentation = "https://github.com/fortunato/pymarket-structure/blob/main/docs/
 "Live Demo" = "https://fortunato.github.io/pymarket-structure/"
 Changelog = "https://github.com/fortunato/pymarket-structure/blob/main/CHANGELOG.md"
 Issues = "https://github.com/fortunato/pymarket-structure/issues"
-
-dependencies = [
-    "numpy>=1.26",
-    "pandas>=2.1",
-]
 
 [build-system]
 requires = ["uv_build>=0.10.10,<0.11.0"]
