@@ -93,10 +93,7 @@
 							"buildTarget": "frontend:build:development"
 						}
 					},
-					"defaultConfiguration": "development",
-					"options": {
-						"allowedHosts": "all"
-					}
+					"defaultConfiguration": "development"
 				}
 			}
 		}
