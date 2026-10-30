@@ -10,7 +10,10 @@
 			</span>
 		</div>
 
-		<div class="stat" title="Percentage of trades that closed in profit. Above 50% means more winners than losers.">
+		<div
+			class="stat"
+			title="Percentage of trades that closed in profit. Above 50% means more winners than losers."
+		>
 			<span class="stat-label">Win Rate</span>
 			<span
 				class="stat-value"
@@ -21,7 +24,10 @@
 			</span>
 		</div>
 
-		<div class="stat" title="Profit Factor — ratio of gross wins to gross losses. Above 1.0 means the strategy is profitable overall.">
+		<div
+			class="stat"
+			title="Profit Factor — ratio of gross wins to gross losses. Above 1.0 means the strategy is profitable overall."
+		>
 			<span class="stat-label">PF</span>
 			<span
 				class="stat-value"
@@ -43,7 +49,10 @@
 			</span>
 		</div>
 
-		<div class="stat" title="Maximum Drawdown — largest peak-to-trough decline on the equity curve. Lower is better.">
+		<div
+			class="stat"
+			title="Maximum Drawdown — largest peak-to-trough decline on the equity curve. Lower is better."
+		>
 			<span class="stat-label">Max DD</span>
 			<span class="stat-value down">{{ stats().maxDrawdown | number: '1.1-1' }}%</span>
 		</div>
@@ -63,7 +72,10 @@
 			<span class="stat-value">{{ formattedDuration() }}</span>
 		</div>
 
-		<div class="stat" title="Expectancy — average expected return per trade. Combines win rate with average win/loss size. Positive means the strategy has an edge.">
+		<div
+			class="stat"
+			title="Expectancy — average expected return per trade. Combines win rate with average win/loss size. Positive means the strategy has an edge."
+		>
 			<span class="stat-label">Expectancy</span>
 			<span
 				class="stat-value"

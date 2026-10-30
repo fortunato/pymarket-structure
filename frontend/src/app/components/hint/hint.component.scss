@@ -17,7 +17,9 @@
 	font-weight: 600;
 	cursor: help;
 	flex-shrink: 0;
-	transition: border-color 0.15s, color 0.15s;
+	transition:
+		border-color 0.15s,
+		color 0.15s;
 
 	&:hover {
 		border-color: var(--accent-blue);
