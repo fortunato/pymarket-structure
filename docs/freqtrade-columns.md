@@ -260,12 +260,19 @@ def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFram
 Scale position size based on pullback depth.
 
 ```python
-def custom_stake_amount(self, current_time, current_rate, proposed_stake,
-                        min_stake, max_stake, leverage, entry_tag, side,
-                        **kwargs) -> float:
-    dataframe, _ = self.dp.get_analyzed_dataframe(
-        pair=kwargs["pair"], timeframe=self.timeframe
-    )
+def custom_stake_amount(
+    self,
+    current_time,
+    current_rate,
+    proposed_stake,
+    min_stake,
+    max_stake,
+    leverage,
+    entry_tag,
+    side,
+    **kwargs,
+) -> float:
+    dataframe, _ = self.dp.get_analyzed_dataframe(pair=kwargs["pair"], timeframe=self.timeframe)
     last = dataframe.iloc[-1]
     correction = last.get("ms_pullback_correction_factor", float("nan"))
 
@@ -273,13 +280,13 @@ def custom_stake_amount(self, current_time, current_rate, proposed_stake,
         return proposed_stake
 
     if 0.5 <= correction <= 0.85:
-        scale = 1.0      # Deep retracement with room to run
+        scale = 1.0  # Deep retracement with room to run
     elif 0.85 < correction <= 1.0:
-        scale = 0.6      # Nearly recovered prior leg
+        scale = 0.6  # Nearly recovered prior leg
     elif correction < 0.5:
-        scale = 0.5      # Very shallow pullback
+        scale = 0.5  # Very shallow pullback
     else:
-        scale = 0.3      # Overextended beyond prior leg
+        scale = 0.3  # Overextended beyond prior leg
 
     return max(min_stake, min(proposed_stake * scale, max_stake))
 ```
@@ -298,8 +305,10 @@ def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFram
             & (dataframe["ms_wave_side"] == "up")
             & (dataframe["ms_pullback_correction_factor"] >= 0.382)
             & (dataframe["ms_pullback_correction_factor"] <= 0.786)
-            & (dataframe["ms_forming_wave_low"].shift(1)
-               <= dataframe["ms_support_zone_high"].shift(1) * 1.005)
+            & (
+                dataframe["ms_forming_wave_low"].shift(1)
+                <= dataframe["ms_support_zone_high"].shift(1) * 1.005
+            )
             & (dataframe["ms_bearish_divergence"].fillna(False) == False)
             & (dataframe["ms_wave_count"] >= 6)
         ),
@@ -395,8 +404,11 @@ from market_structure.mtf import attach_market_structure_mtf
 
 # In populate_indicators():
 df = attach_market_structure_mtf(
-    df, metadata, self.ms_store,
-    htf="4h", ltf="1h",
+    df,
+    metadata,
+    self.ms_store,
+    htf="4h",
+    ltf="1h",
     columns=("wave_side", "is_trending_up", "support_zone_low"),
     auto_histogram=True,
 )
