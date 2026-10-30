@@ -105,8 +105,8 @@ class TestZoneLifecycleEvents:
         for side in ["support", "resistance"]:
             break_col = f"ms_zone_break_{side}"
             retest_col = f"ms_zone_retest_{side}"
-            break_bars = lifecycle_df.index[lifecycle_df[break_col] == True].tolist()  # noqa: E712
-            retest_bars = lifecycle_df.index[lifecycle_df[retest_col] == True].tolist()  # noqa: E712
+            break_bars = lifecycle_df.index[lifecycle_df[break_col].to_numpy() == True].tolist()  # noqa: E712
+            retest_bars = lifecycle_df.index[lifecycle_df[retest_col].to_numpy() == True].tolist()  # noqa: E712
             if retest_bars:
                 first_retest = retest_bars[0]
                 if break_bars:
@@ -139,12 +139,10 @@ class TestZoneLifecycleEvents:
         )
 
         # Wick mode should detect >= as many retests as close mode.
-        wick_retests = (
-            wick_result["ms_zone_retest_support"].sum()
-            + wick_result["ms_zone_retest_resistance"].sum()
+        wick_retests = int(wick_result["ms_zone_retest_support"].to_numpy().sum()) + int(
+            wick_result["ms_zone_retest_resistance"].to_numpy().sum()
         )
-        close_retests = (
-            close_result["ms_zone_retest_support"].sum()
-            + close_result["ms_zone_retest_resistance"].sum()
+        close_retests = int(close_result["ms_zone_retest_support"].to_numpy().sum()) + int(
+            close_result["ms_zone_retest_resistance"].to_numpy().sum()
         )
         assert wick_retests >= close_retests

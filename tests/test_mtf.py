@@ -154,7 +154,7 @@ class TestMTFProjection:
 
             # Compare only where both have values.
             mask = expected.notna() & actual.notna()
-            if mask.sum() == 0:
+            if not mask.to_numpy().any():
                 continue
 
             if expected.dtype == float or actual.dtype == float:
