@@ -11,12 +11,18 @@ concurrency:
 
 jobs:
   check:
-    name: Check (Python ${{ matrix.python-version }})
+    name: Check (Python ${{ matrix.python-version }}${{ matrix.experimental && ', pre-release' || '' }})
     runs-on: ubuntu-latest
+    # Pre-release Pythons are an early warning, not a merge gate.
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12", "3.13"]
+        python-version: ["3.12", "3.13", "3.14", "3.15"]
+        experimental: [false]
+        include:
+          - python-version: "3.16"
+            experimental: true
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
