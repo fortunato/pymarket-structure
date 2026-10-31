@@ -8,7 +8,7 @@ repos:
   # Generic hygiene hooks — whitespace, file endings, merge conflicts, etc.
   # ---------------------------------------------------------------------------
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -25,7 +25,7 @@ repos:
   # Ruff — lint + format (official Astral pre-commit repo)
   # ---------------------------------------------------------------------------
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.9
+    rev: v0.17.3
     hooks:
       # Lint. `--fix` auto-corrects fixable issues; `--exit-non-zero-on-fix`
       # ensures the commit still fails so you re-stage the fixes deliberately.

@@ -25,14 +25,15 @@ from market_structure.atr import _compute_atr
 df["tsi_hist"] = compute_tsi(df["close"])["tsi_histogram"]
 helper = hydrate(df, histogram_key="tsi_hist")
 
-atr = _compute_atr(df["high"].to_numpy(), df["low"].to_numpy(),
-                    df["close"].to_numpy(), period=14)
+atr = _compute_atr(df["high"].to_numpy(), df["low"].to_numpy(), df["close"].to_numpy(), period=14)
 
 for z in helper.get_support_zones(atr_arr=atr):
-    body_low, body_high = z.range       # body-anchored (accepted price)
-    wick_low, wick_high = z.wick_range   # wick extrema (for stop placement)
-    print(f"{z.anchor_wave_id}  body=({body_low:.2f}, {body_high:.2f})  "
-          f"wick=({wick_low:.2f}, {wick_high:.2f})  double={z.is_double}")
+    body_low, body_high = z.range  # body-anchored (accepted price)
+    wick_low, wick_high = z.wick_range  # wick extrema (for stop placement)
+    print(
+        f"{z.anchor_wave_id}  body=({body_low:.2f}, {body_high:.2f})  "
+        f"wick=({wick_low:.2f}, {wick_high:.2f})  double={z.is_double}"
+    )
 ```
 
 ### Freqtrade integration

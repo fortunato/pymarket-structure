@@ -1,11 +1,20 @@
-import { ChangeDetectionStrategy, Component, ElementRef, input, signal, viewChild } from '@angular/core';
+import {
+	ChangeDetectionStrategy,
+	Component,
+	ElementRef,
+	input,
+	signal,
+	viewChild,
+} from '@angular/core';
 
 @Component({
 	selector: 'app-hint',
 	template: `
 		<span class="hint" #icon (mouseenter)="show($event)" (mouseleave)="hide()">?</span>
 		@if (visible()) {
-			<div class="tip" [style.top.px]="tipTop()" [style.right.px]="tipRight()">{{ text() }}</div>
+			<div class="tip" [style.top.px]="tipTop()" [style.right.px]="tipRight()">
+				{{ text() }}
+			</div>
 		}
 	`,
 	styleUrl: './hint.component.scss',
